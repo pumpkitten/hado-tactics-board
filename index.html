@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111317">
-<title>覇道戦術ボード PC・スマホ共通版</title>
+<title>覇道戦術ボード 時間別シーン・部隊情報対応版</title>
 <style>
   :root {
     color-scheme: dark;
@@ -208,6 +208,92 @@
     white-space: pre-wrap;
     box-shadow: 0 12px 40px rgba(0,0,0,.55);
   }
+
+  .timeline-panel {
+    position: relative;
+    z-index: 25;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    background: #171b20;
+    border-bottom: 1px solid var(--line);
+  }
+  .timeline-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+  }
+  .timeline-controls button { min-width: 42px; min-height: 38px; padding: 6px 9px; }
+  #playScenesBtn { min-width: 76px; background: #6d461e; border-color: #c7893b; }
+  #playScenesBtn.playing { background: #653036; border-color: #d76a72; }
+  .speed-label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  #sceneDuration { min-height: 38px; padding: 6px 8px; }
+  .scene-strip {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    padding: 1px 2px 3px;
+  }
+  .scene-button {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 92px;
+    min-height: 42px;
+    padding: 5px 10px 5px 25px;
+    text-align: left;
+    line-height: 1.15;
+    border-color: #4d5661;
+    background: #2b3139;
+  }
+  .scene-button .scene-number {
+    position: absolute;
+    left: 7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #4b5561;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+  }
+  .scene-button .scene-name { display: block; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 750; font-size: 12px; }
+  .scene-button .scene-count { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+  .scene-button.active { background: #784d21; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .scene-button.active .scene-number { background: var(--accent); color: #1c1307; }
+  .scene-button.uninitialized { border-style: dashed; opacity: .76; }
+  .scene-management { display: flex; gap: 5px; flex: 0 0 auto; }
+  .mobile-scene-group { display: none; }
+  .scene-management button { min-width: 40px; min-height: 38px; padding: 6px 8px; }
+  .playback-badge {
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: -28px;
+    transform: translateX(-50%);
+    z-index: 50;
+    padding: 5px 12px;
+    border: 1px solid #d4a257;
+    border-radius: 999px;
+    background: rgba(36,27,16,.94);
+    color: #ffe4b4;
+    font-size: 11px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .playback-badge.show { display: block; }
+
   .mobile-nav, .selection-bar, .sheet-backdrop, .drawer-backdrop { display: none; }
 
   @media (max-width: 900px) {
@@ -215,6 +301,24 @@
     header { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
     header h1 { font-size: 16px; }
     #settingsToggle { display: inline-flex; align-items: center; justify-content: center; }
+
+    .timeline-panel {
+      gap: 5px;
+      padding: 5px 6px;
+      align-items: stretch;
+    }
+    .timeline-controls { gap: 3px; }
+    .timeline-controls button { min-width: 36px; min-height: 38px; padding: 5px 7px; font-size: 12px; }
+    #playScenesBtn { min-width: 58px; }
+    .speed-label { display: none; }
+    .scene-strip { gap: 4px; padding-bottom: 2px; }
+    .scene-button { min-width: 76px; min-height: 38px; padding: 4px 7px 4px 21px; }
+    .scene-button .scene-number { left: 5px; width: 13px; height: 13px; font-size: 8px; }
+    .scene-button .scene-name { max-width: 92px; font-size: 10px; }
+    .scene-button .scene-count { display: none; }
+    .scene-management { display: none; }
+    .toolbar .mobile-scene-group { display: flex; }
+    .playback-badge { bottom: -25px; }
 
     .toolbar {
       position: fixed;
@@ -348,14 +452,88 @@
     .mobile-nav button { font-size: 10px; }
     .mobile-nav .icon { font-size: 19px; }
   }
+
+
+  .selected-info {
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #14171b;
+    color: #dfe7ef;
+    min-height: 60px;
+  }
+  .selected-info.empty { color: var(--muted); }
+  .selected-info .info-title { margin-bottom: 6px; font-weight: 800; color: #fff; }
+  .selected-info dl { display: grid; grid-template-columns: 58px minmax(0,1fr); gap: 3px 7px; margin: 0; }
+  .selected-info dt { color: var(--muted); }
+  .selected-info dd { margin: 0; overflow-wrap: anywhere; }
+
+  .detail-backdrop {
+    display: none;
+    position: fixed;
+    z-index: 120;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(0,0,0,.68);
+    backdrop-filter: blur(3px);
+  }
+  .detail-backdrop.show { display: flex; }
+  .detail-dialog {
+    width: min(560px, 100%);
+    max-height: min(760px, calc(100vh - 36px));
+    overflow: auto;
+    padding: 18px;
+    border: 1px solid #596371;
+    border-radius: 14px;
+    background: #20242a;
+    box-shadow: 0 20px 55px rgba(0,0,0,.58);
+  }
+  .detail-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .detail-dialog-head h2 { margin: 0; font-size: 18px; }
+  .detail-dialog-head button { min-width: 44px; font-size: 18px; padding: 5px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .detail-field { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+  .detail-field.full { grid-column: 1 / -1; }
+  .detail-field input, .detail-field select, .detail-field textarea {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid #596371;
+    border-radius: 8px;
+    background: #303640;
+    color: #fff;
+    padding: 9px 10px;
+    font: inherit;
+    font-size: 15px;
+  }
+  .detail-field textarea { min-height: 78px; resize: vertical; }
+  .detail-help { margin: 12px 0 0; padding: 9px 10px; border: 1px solid #46505b; border-radius: 8px; background: #171b20; color: var(--muted); font-size: 12px; line-height: 1.55; }
+  .sync-options { display: grid; gap: 8px; margin-top: 12px; }
+  .sync-row { display: flex; align-items: flex-start; gap: 9px; color: #e8edf2; font-size: 13px; line-height: 1.45; }
+  .sync-row input { width: 19px; height: 19px; margin: 0; flex: 0 0 auto; accent-color: var(--accent); }
+  .detail-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .detail-actions .primary { background: #8a5620; border-color: var(--accent); font-weight: 800; }
+
+  @media (max-width: 600px) {
+    .detail-backdrop { align-items: flex-end; padding: 0; }
+    .detail-dialog { width: 100%; max-height: 88dvh; padding: 14px 14px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; border-bottom: 0; }
+    .detail-grid { grid-template-columns: 1fr; gap: 10px; }
+    .detail-field.full { grid-column: auto; }
+    .detail-actions { position: sticky; bottom: -14px; padding: 12px 0 0; background: #20242a; }
+    .detail-actions button { flex: 1; min-height: 48px; }
+  }
+
 </style>
 </head>
 <body>
+<div id="startupError"></div>
 <div id="app">
   <header>
     <div class="title-wrap">
       <h1>覇道戦術ボード</h1>
-      <p>試作1号 改良版・PC／スマホ共通対応</p>
+      <p>試作第四弾・時間別シーン／部隊情報・担当者・目標設定対応</p>
     </div>
     <button id="settingsToggle" type="button" aria-label="設定を開く">☰</button>
   </header>
@@ -399,11 +577,19 @@
 
     <div class="group">
       <span class="group-label">編集</span>
-      <button id="editBtn" type="button">名前・文字を編集</button>
+      <button id="editBtn" type="button">名前・部隊情報を編集</button>
+      <button id="toggleUnitInfoBtn" type="button" class="active">部隊情報：表示</button>
       <button id="undoBtn" type="button">元に戻す</button>
       <button id="redoBtn" type="button">やり直す</button>
       <button id="deleteBtn" class="danger" type="button">選択を削除</button>
       <button id="clearBtn" class="danger" type="button">配置を全消去</button>
+    </div>
+
+    <div class="group mobile-scene-group">
+      <span class="group-label">時間別シーン</span>
+      <button type="button" data-scene-action="add">＋ 場面追加</button>
+      <button type="button" data-scene-action="rename">場面名変更</button>
+      <button type="button" data-scene-action="delete" class="danger">場面削除</button>
     </div>
 
     <div class="group">
@@ -414,6 +600,28 @@
       <button id="exportPngBtn" type="button">PNG画像保存</button>
     </div>
   </div>
+
+  <section id="timelinePanel" class="timeline-panel" aria-label="時間別シーン">
+    <div class="timeline-controls">
+      <button id="prevSceneBtn" type="button" title="前の場面">◀</button>
+      <button id="playScenesBtn" type="button" title="現在の場面から再生">▶ 再生</button>
+      <button id="nextSceneBtn" type="button" title="次の場面">▶</button>
+      <label class="speed-label">移動時間
+        <select id="sceneDuration" title="場面間のアニメーション時間">
+          <option value="700">速い</option>
+          <option value="1300" selected>標準</option>
+          <option value="2200">ゆっくり</option>
+        </select>
+      </label>
+    </div>
+    <div id="sceneStrip" class="scene-strip" aria-label="場面一覧"></div>
+    <div class="scene-management">
+      <button id="addSceneBtn" type="button" title="現在の配置を複製して場面追加">＋場面</button>
+      <button id="renameSceneBtn" type="button" title="現在の場面名を変更">名前</button>
+      <button id="deleteSceneBtn" class="danger" type="button" title="現在の場面を削除">削除</button>
+    </div>
+    <div id="playbackBadge" class="playback-badge">再生中</div>
+  </section>
 
   <main>
     <section id="boardWrap" class="board-wrap">
@@ -433,10 +641,14 @@
       <p><strong>盤面移動：</strong>「盤面」モードで指を滑らせます。</p>
       <p><strong>拡大縮小：</strong>2本指のピンチ、または右上の＋／－／全体。</p>
       <p><strong>駒の移動：</strong>「選択」モードで駒をドラッグします。</p>
-      <p><strong>名前変更：</strong>駒・文字を長押し、または選択後に編集ボタン。</p>
+      <p><strong>部隊情報：</strong>駒を長押し、または選択後に「詳細」。役割・担当者・場面目標を設定できます。</p>
       <p><strong>背景：</strong>設定メニューから任意のマップ画像へ差し替えられます。</p>
       <h2>PC操作</h2>
       <p>ダブルクリックで編集。<span class="key">Delete</span>で削除、<span class="key">Ctrl</span>＋<span class="key">Z</span>で元に戻せます。</p>
+      <h2>時間別シーン</h2>
+      <p>上部の場面タブごとに配置を保存します。未編集の次場面を開くと、直前の配置を自動複製します。「再生」で駒と矢印が次の場面へ移動します。</p>
+      <h2>選択中の部隊・駒</h2>
+      <div id="selectedInfo" class="selected-info empty">駒を選択すると、役割・担当者・現在目標がここに表示されます。</div>
       <h2>現在の状態</h2>
       <div id="status" class="status">準備中…</div>
     </aside>
@@ -446,7 +658,7 @@
 
   <div id="selectionBar" class="selection-bar">
     <span id="selectionLabel">選択中</span>
-    <button id="mobileEditBtn" type="button">編集</button>
+    <button id="mobileEditBtn" type="button">詳細</button>
     <button id="mobileDeleteBtn" class="danger" type="button">削除</button>
   </div>
 
@@ -457,6 +669,53 @@
     <button type="button" data-mode="text"><span class="icon">T</span><span>文字</span></button>
     <button id="openAddSheet" type="button"><span class="icon">＋</span><span>駒追加</span></button>
   </nav>
+
+  <div id="detailBackdrop" class="detail-backdrop">
+    <section class="detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detailDialogTitle">
+      <div class="detail-dialog-head">
+        <h2 id="detailDialogTitle">部隊・駒の詳細設定</h2>
+        <button id="closeDetailBtn" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="detail-grid">
+        <label class="detail-field">盤面上の表示名
+          <input id="detailLabel" type="text" maxlength="12" placeholder="例：味A、左攻めA">
+        </label>
+        <label class="detail-field">役割
+          <select id="detailRole">
+            <option value="">未設定</option>
+            <option>攻撃</option>
+            <option>防衛</option>
+            <option>遊撃</option>
+            <option>拠点制圧</option>
+            <option>井蘭車護衛</option>
+            <option>強敵対応</option>
+            <option>支援</option>
+            <option>待機</option>
+            <option>指揮</option>
+            <option>その他</option>
+          </select>
+        </label>
+        <label class="detail-field full">担当者
+          <input id="detailAssignee" type="text" maxlength="30" placeholder="軍団員名・班名など">
+        </label>
+        <label class="detail-field full">この場面での目標
+          <input id="detailTarget" type="text" maxlength="50" placeholder="例：左本詰所、中央武器庫、井蘭車周囲">
+        </label>
+        <label class="detail-field full">補足・行動条件
+          <textarea id="detailNote" maxlength="160" placeholder="例：本詰所破壊後は井蘭車へ合流。敵が中央に集中した場合は遊撃へ変更。"></textarea>
+        </label>
+      </div>
+      <div class="sync-options">
+        <label class="sync-row"><input id="syncIdentityAcrossScenes" type="checkbox" checked><span>表示名・役割・担当者を、同じ駒が存在するすべての時間別シーンへ反映</span></label>
+        <label class="sync-row"><input id="syncTargetAcrossScenes" type="checkbox"><span>目標・補足も、すべての時間別シーンへ反映</span></label>
+      </div>
+      <p class="detail-help">役割と担当者は全体方針、目標は場面ごとの行動として使えます。盤面上の小さな情報札は「部隊情報：表示／非表示」で切り替えられます。</p>
+      <div class="detail-actions">
+        <button id="cancelDetailBtn" type="button">キャンセル</button>
+        <button id="saveDetailBtn" type="button" class="primary">設定を保存</button>
+      </div>
+    </section>
+  </div>
 
   <div id="addSheetBackdrop" class="sheet-backdrop">
     <div class="sheet" role="dialog" aria-modal="true" aria-label="駒を追加">
@@ -510,9 +769,23 @@ window.addEventListener('unhandledrejection', function (event) {
   const redoBtn = document.getElementById('redoBtn');
   const editBtn = document.getElementById('editBtn');
   const deleteBtn = document.getElementById('deleteBtn');
+  const toggleUnitInfoBtn = document.getElementById('toggleUnitInfoBtn');
+  const selectedInfo = document.getElementById('selectedInfo');
+  const detailBackdrop = document.getElementById('detailBackdrop');
+  const detailLabel = document.getElementById('detailLabel');
+  const detailRole = document.getElementById('detailRole');
+  const detailAssignee = document.getElementById('detailAssignee');
+  const detailTarget = document.getElementById('detailTarget');
+  const detailNote = document.getElementById('detailNote');
+  const syncIdentityAcrossScenes = document.getElementById('syncIdentityAcrossScenes');
+  const syncTargetAcrossScenes = document.getElementById('syncTargetAcrossScenes');
   const selectionBar = document.getElementById('selectionBar');
   const selectionLabel = document.getElementById('selectionLabel');
   const zoomLabel = document.getElementById('zoomLabel');
+  const sceneStrip = document.getElementById('sceneStrip');
+  const playScenesBtn = document.getElementById('playScenesBtn');
+  const playbackBadge = document.getElementById('playbackBadge');
+  const sceneDurationInput = document.getElementById('sceneDuration');
 
   let backgroundImage = new Image();
   let backgroundDataUrl = DEFAULT_BACKGROUND;
@@ -540,9 +813,251 @@ window.addEventListener('unhandledrejection', function (event) {
   let historyIndex = -1;
   let statusTimer = null;
   let currentUnitLetter = 'A';
+  let showUnitInfo = true;
+  let detailEditingIndex = -1;
+
+  let uidCounter = 0;
+  let scenes = createDefaultScenes([]);
+  let currentSceneIndex = 0;
+  let animationObjects = null;
+  let isPlaying = false;
+  let playbackToken = 0;
 
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
   function deepCopy(value) { return JSON.parse(JSON.stringify(value)); }
+  function makeUid(prefix = 'obj') {
+    uidCounter += 1;
+    return `${prefix}_${Date.now().toString(36)}_${uidCounter.toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+  }
+  function ensureObjectIds(list) {
+    (list || []).forEach(obj => {
+      if (!obj.uid) obj.uid = makeUid(obj.type || 'obj');
+      if (obj.type === 'token') {
+        if (typeof obj.role !== 'string') obj.role = '';
+        if (typeof obj.assignee !== 'string') obj.assignee = '';
+        if (typeof obj.target !== 'string') obj.target = '';
+        if (typeof obj.note !== 'string') obj.note = '';
+      }
+    });
+    return list || [];
+  }
+  function createDefaultScenes(firstObjects = []) {
+    const names = ['初動', '30秒', '60秒', '井蘭車出現', '城壁到達'];
+    return names.map((name, index) => ({
+      id: makeUid('scene'),
+      name,
+      initialized: index === 0,
+      objects: index === 0 ? ensureObjectIds(deepCopy(firstObjects)) : []
+    }));
+  }
+  function normalizeScenes(rawScenes, fallbackObjects = []) {
+    if (!Array.isArray(rawScenes) || !rawScenes.length) return createDefaultScenes(fallbackObjects);
+    return rawScenes.map((scene, index) => ({
+      id: scene.id || makeUid('scene'),
+      name: String(scene.name || `場面${index + 1}`).slice(0, 24),
+      initialized: scene.initialized !== false,
+      objects: ensureObjectIds(deepCopy(Array.isArray(scene.objects) ? scene.objects : []))
+    }));
+  }
+  function saveCurrentScene() {
+    if (!scenes[currentSceneIndex]) return;
+    ensureObjectIds(objects);
+    scenes[currentSceneIndex].objects = deepCopy(objects);
+    scenes[currentSceneIndex].initialized = true;
+  }
+  function materializeScenes() {
+    saveCurrentScene();
+    let previous = [];
+    scenes.forEach((scene, index) => {
+      if (scene.initialized) previous = deepCopy(scene.objects);
+      else {
+        scene.objects = ensureObjectIds(deepCopy(previous));
+        scene.initialized = true;
+      }
+      if (index === 0 && !scene.initialized) scene.initialized = true;
+    });
+  }
+  function sceneLabel(scene, index) {
+    const count = scene.initialized ? scene.objects.length : '未設定';
+    return `<span class="scene-number">${index + 1}</span><span class="scene-name"></span><span class="scene-count">${count === '未設定' ? count : `${count}項目`}</span>`;
+  }
+  function updateSceneUI(scrollActive = false) {
+    sceneStrip.innerHTML = '';
+    scenes.forEach((scene, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'scene-button';
+      button.dataset.sceneIndex = String(index);
+      button.classList.toggle('active', index === currentSceneIndex);
+      button.classList.toggle('uninitialized', !scene.initialized);
+      button.innerHTML = sceneLabel(scene, index);
+      button.querySelector('.scene-name').textContent = scene.name;
+      button.title = `${index + 1}. ${scene.name}${scene.initialized ? `（${scene.objects.length}項目）` : '（開くと直前場面を複製）'}`;
+      button.disabled = isPlaying;
+      button.addEventListener('click', () => switchScene(index));
+      sceneStrip.appendChild(button);
+    });
+    document.getElementById('prevSceneBtn').disabled = isPlaying || currentSceneIndex <= 0;
+    document.getElementById('nextSceneBtn').disabled = isPlaying || currentSceneIndex >= scenes.length - 1;
+    document.getElementById('deleteSceneBtn').disabled = isPlaying || scenes.length <= 1;
+    document.getElementById('addSceneBtn').disabled = isPlaying;
+    document.getElementById('renameSceneBtn').disabled = isPlaying;
+    document.querySelectorAll('[data-scene-action]').forEach(button => {
+      button.disabled = isPlaying || (button.dataset.sceneAction === 'delete' && scenes.length <= 1);
+    });
+    playScenesBtn.classList.toggle('playing', isPlaying);
+    playScenesBtn.textContent = isPlaying ? '■ 停止' : '▶ 再生';
+    playbackBadge.classList.toggle('show', isPlaying);
+    if (isPlaying) playbackBadge.textContent = `再生中：${scenes[currentSceneIndex]?.name || ''}`;
+    if (scrollActive) requestAnimationFrame(() => sceneStrip.querySelector('.scene-button.active')?.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'}));
+  }
+  function switchScene(index, options = {}) {
+    if (isPlaying && !options.fromPlayback) return;
+    index = clamp(index, 0, scenes.length - 1);
+    if (index === currentSceneIndex && !options.force) return;
+    saveCurrentScene();
+    const previousObjects = deepCopy(objects);
+    const target = scenes[index];
+    if (!target.initialized) {
+      target.objects = ensureObjectIds(deepCopy(previousObjects));
+      target.initialized = true;
+    }
+    currentSceneIndex = index;
+    objects = ensureObjectIds(deepCopy(target.objects));
+    selectedIndex = -1;
+    animationObjects = null;
+    resetHistory();
+    draw();
+    updateSelectionUI();
+    updateSceneUI(true);
+    setStatus(`場面「${target.name}」を表示しました。`);
+  }
+  function addScene() {
+    if (isPlaying) return;
+    saveCurrentScene();
+    const defaultName = `${scenes[currentSceneIndex]?.name || '場面'}の次`;
+    const entered = prompt('追加する場面名を入力してください。現在の配置を複製します。', defaultName);
+    if (entered === null) return;
+    const name = entered.trim() || `場面${scenes.length + 1}`;
+    const scene = { id: makeUid('scene'), name: name.slice(0,24), initialized: true, objects: ensureObjectIds(deepCopy(objects)) };
+    scenes.splice(currentSceneIndex + 1, 0, scene);
+    currentSceneIndex += 1;
+    objects = deepCopy(scene.objects);
+    selectedIndex = -1;
+    resetHistory();
+    draw(); updateSelectionUI(); updateSceneUI(true);
+    setStatus(`場面「${scene.name}」を追加しました。`);
+  }
+  function renameScene() {
+    if (isPlaying) return;
+    const scene = scenes[currentSceneIndex];
+    const entered = prompt('現在の場面名を変更してください。', scene.name);
+    if (entered === null || !entered.trim()) return;
+    scene.name = entered.trim().slice(0,24);
+    updateSceneUI(true);
+    setStatus(`場面名を「${scene.name}」に変更しました。`);
+  }
+  function deleteScene() {
+    if (isPlaying || scenes.length <= 1) return;
+    const scene = scenes[currentSceneIndex];
+    if (!confirm(`場面「${scene.name}」を削除しますか？`)) return;
+    scenes.splice(currentSceneIndex, 1);
+    currentSceneIndex = Math.min(currentSceneIndex, scenes.length - 1);
+    objects = ensureObjectIds(deepCopy(scenes[currentSceneIndex].objects));
+    selectedIndex = -1;
+    resetHistory(); draw(); updateSelectionUI(); updateSceneUI(true);
+    setStatus('場面を削除しました。');
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function interpolateObject(fromObj, toObj, t) {
+    const source = fromObj || toObj;
+    const target = toObj || fromObj;
+    const result = deepCopy(t < .5 ? source : target);
+    result.uid = source.uid || target.uid;
+    result.opacity = fromObj && toObj ? 1 : (fromObj ? 1 - t : t);
+    if (fromObj && toObj && fromObj.type === toObj.type) {
+      if (result.type === 'token') {
+        result.x = lerp(fromObj.x, toObj.x, t); result.y = lerp(fromObj.y, toObj.y, t);
+        result.radius = lerp(fromObj.radius, toObj.radius, t);
+      } else if (result.type === 'arrow') {
+        ['x1','y1','x2','y2','width'].forEach(key => result[key] = lerp(fromObj[key], toObj[key], t));
+      } else if (result.type === 'text') {
+        result.x = lerp(fromObj.x, toObj.x, t); result.y = lerp(fromObj.y, toObj.y, t);
+        result.fontSize = lerp(fromObj.fontSize, toObj.fontSize, t);
+      }
+    }
+    return result;
+  }
+  function transitionObjects(fromList, toList, t) {
+    ensureObjectIds(fromList); ensureObjectIds(toList);
+    const fromMap = new Map(fromList.map(obj => [obj.uid, obj]));
+    const toMap = new Map(toList.map(obj => [obj.uid, obj]));
+    const ids = [...fromList.map(obj=>obj.uid), ...toList.map(obj=>obj.uid).filter(id => !fromMap.has(id))];
+    return ids.map(id => interpolateObject(fromMap.get(id), toMap.get(id), t));
+  }
+  function animateBetween(fromList, toList, duration, token) {
+    return new Promise(resolve => {
+      const started = performance.now();
+      const frame = now => {
+        if (!isPlaying || token !== playbackToken) { animationObjects = null; draw(); resolve(false); return; }
+        const raw = clamp((now - started) / duration, 0, 1);
+        const eased = raw < .5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+        animationObjects = transitionObjects(fromList, toList, eased);
+        draw(false);
+        if (raw < 1) requestAnimationFrame(frame);
+        else { animationObjects = null; resolve(true); }
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+  function waitMs(ms, token) {
+    return new Promise(resolve => setTimeout(() => resolve(isPlaying && token === playbackToken), ms));
+  }
+  function stopPlayback(message = '再生を停止しました。') {
+    if (!isPlaying) return;
+    isPlaying = false;
+    playbackToken += 1;
+    animationObjects = null;
+    selectedIndex = -1;
+    draw(); updateSelectionUI(); updateSceneUI();
+    setStatus(message);
+  }
+  async function playScenes() {
+    if (isPlaying) { stopPlayback(); return; }
+    materializeScenes();
+    if (scenes.length < 2) { setStatus('再生には2つ以上の場面が必要です。'); return; }
+    if (currentSceneIndex >= scenes.length - 1) {
+      currentSceneIndex = 0;
+      objects = deepCopy(scenes[0].objects);
+      resetHistory(); draw();
+    }
+    isPlaying = true;
+    selectedIndex = -1;
+    const token = ++playbackToken;
+    updateSelectionUI(); updateSceneUI(true);
+    setStatus(`「${scenes[currentSceneIndex].name}」から再生します。`);
+    const duration = clamp(Number(sceneDurationInput.value) || 1300, 300, 5000);
+    for (let i = currentSceneIndex; i < scenes.length - 1; i++) {
+      if (!isPlaying || token !== playbackToken) break;
+      currentSceneIndex = i;
+      objects = deepCopy(scenes[i].objects);
+      updateSceneUI(true);
+      const completed = await animateBetween(scenes[i].objects, scenes[i + 1].objects, duration, token);
+      if (!completed) break;
+      currentSceneIndex = i + 1;
+      objects = deepCopy(scenes[i + 1].objects);
+      draw(false); updateSceneUI(true);
+      const continued = await waitMs(420, token);
+      if (!continued) break;
+    }
+    if (token === playbackToken) {
+      isPlaying = false;
+      animationObjects = null;
+      selectedIndex = -1;
+      resetHistory(); draw(); updateSelectionUI(); updateSceneUI(true);
+      setStatus(`再生完了：「${scenes[currentSceneIndex].name}」`);
+    }
+  }
   function snapshot() { return JSON.stringify(objects); }
 
   function resetHistory() {
@@ -557,6 +1072,8 @@ window.addEventListener('unhandledrejection', function (event) {
     history.push(snap);
     if (history.length > 100) history.shift();
     historyIndex = history.length - 1;
+    saveCurrentScene();
+    updateSceneUI();
     updateHistoryButtons();
   }
   function undo() {
@@ -564,14 +1081,14 @@ window.addEventListener('unhandledrejection', function (event) {
     historyIndex--;
     objects = JSON.parse(history[historyIndex]);
     selectedIndex = -1;
-    updateSelectionUI(); draw(); updateHistoryButtons();
+    saveCurrentScene(); updateSelectionUI(); draw(); updateSceneUI(); updateHistoryButtons();
   }
   function redo() {
     if (historyIndex >= history.length - 1) return;
     historyIndex++;
     objects = JSON.parse(history[historyIndex]);
     selectedIndex = -1;
-    updateSelectionUI(); draw(); updateHistoryButtons();
+    saveCurrentScene(); updateSelectionUI(); draw(); updateSceneUI(); updateHistoryButtons();
   }
   function updateHistoryButtons() {
     undoBtn.disabled = historyIndex <= 0;
@@ -595,15 +1112,38 @@ window.addEventListener('unhandledrejection', function (event) {
     if (obj.type === 'arrow') return '進軍矢印';
     return '対象';
   }
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+  }
+  function updateSelectedInfo(obj) {
+    if (!selectedInfo) return;
+    if (!obj || obj.type !== 'token') {
+      selectedInfo.classList.add('empty');
+      selectedInfo.textContent = obj ? `${objectName(obj)}を選択中です。部隊情報は駒を選択すると表示されます。` : '駒を選択すると、役割・担当者・現在目標がここに表示されます。';
+      return;
+    }
+    selectedInfo.classList.remove('empty');
+    selectedInfo.innerHTML = `<div class="info-title">${escapeHtml(objectName(obj))}</div><dl>` +
+      `<dt>役割</dt><dd>${escapeHtml(obj.role || '未設定')}</dd>` +
+      `<dt>担当</dt><dd>${escapeHtml(obj.assignee || '未設定')}</dd>` +
+      `<dt>目標</dt><dd>${escapeHtml(obj.target || '未設定')}</dd>` +
+      `<dt>補足</dt><dd>${escapeHtml(obj.note || 'なし')}</dd></dl>`;
+  }
   function updateSelectionUI() {
     const obj = objects[selectedIndex];
     const has = !!obj;
-    editBtn.disabled = !has || obj.type === 'arrow';
-    deleteBtn.disabled = !has;
-    document.getElementById('mobileEditBtn').disabled = !has || obj?.type === 'arrow';
-    document.getElementById('mobileDeleteBtn').disabled = !has;
+    editBtn.disabled = isPlaying || !has || obj.type === 'arrow';
+    editBtn.textContent = obj?.type === 'token' ? '部隊・駒情報を編集' : '名前・文字を編集';
+    deleteBtn.disabled = isPlaying || !has;
+    document.getElementById('mobileEditBtn').disabled = isPlaying || !has || obj?.type === 'arrow';
+    document.getElementById('mobileEditBtn').textContent = obj?.type === 'token' ? '詳細' : '編集';
+    document.getElementById('mobileDeleteBtn').disabled = isPlaying || !has;
     selectionBar.classList.toggle('show', has);
-    selectionLabel.textContent = has ? `選択中：${objectName(obj)}` : '未選択';
+    const summary = obj?.type === 'token' && (obj.role || obj.assignee || obj.target)
+      ? `｜${obj.role || '役割未設定'}${obj.assignee ? `・${obj.assignee}` : ''}${obj.target ? ` → ${obj.target}` : ''}`
+      : '';
+    selectionLabel.textContent = has ? `選択中：${objectName(obj)}${summary}` : '未選択';
+    updateSelectedInfo(obj);
   }
 
   function updateModeButtons() {
@@ -616,7 +1156,7 @@ window.addEventListener('unhandledrejection', function (event) {
     cancelLongPress();
     updateModeButtons();
     if (mode === 'pan') setStatus('盤面移動モード：指またはマウスで地図を動かせます。');
-    if (mode === 'select') setStatus('選択モード：駒をドラッグ。スマホでは長押しで名前を編集できます。');
+    if (mode === 'select') setStatus('選択モード：駒をドラッグ。スマホでは長押しで部隊情報や文字を編集できます。');
     if (mode === 'arrow') setStatus('矢印モード：始点から終点までドラッグしてください。');
     if (mode === 'text') setStatus('文字モード：置きたい場所をタップしてください。');
     draw();
@@ -700,7 +1240,7 @@ window.addEventListener('unhandledrejection', function (event) {
     const dx = obj.x2 - obj.x1, dy = obj.y2 - obj.y1;
     const angle = Math.atan2(dy, dx);
     const headLength = Math.max(20, obj.width * 3.3);
-    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.save(); ctx.globalAlpha = obj.opacity ?? 1; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.width;
     ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(obj.x2, obj.y2);
@@ -745,18 +1285,50 @@ window.addEventListener('unhandledrejection', function (event) {
     ctx.font=`900 ${Math.round(r*.25)}px system-ui, "Yu Gothic UI", sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#ffe0dc'; ctx.strokeStyle='rgba(0,0,0,.95)'; ctx.lineWidth=3; ctx.strokeText('強敵',0,r*.63); ctx.fillText('強敵',0,r*.63); ctx.restore();
   }
 
+  function clippedText(value, maxLength) {
+    const text = String(value || '').trim();
+    if (text.length <= maxLength) return text;
+    return text.slice(0, Math.max(1, maxLength - 1)) + '…';
+  }
+  function drawTokenInfo(obj) {
+    if (!showUnitInfo) return;
+    const topLine = [obj.role, obj.assignee].filter(Boolean).map((v, i) => clippedText(v, i === 0 ? 7 : 10)).join('・');
+    const targetLine = obj.target ? `→ ${clippedText(obj.target, 16)}` : '';
+    if (!topLine && !targetLine) return;
+    const fontSize = Math.max(11, Math.round(obj.radius * .31));
+    ctx.font = `700 ${fontSize}px system-ui, "Yu Gothic UI", sans-serif`;
+    const lines = [topLine, targetLine].filter(Boolean);
+    const width = Math.min(obj.radius * 5.2, Math.max(obj.radius * 2.35, ...lines.map(line => ctx.measureText(line).width + 14)));
+    const lineHeight = fontSize + 4;
+    const height = lines.length * lineHeight + 8;
+    const x = -width / 2;
+    const y = obj.radius + 10;
+    ctx.fillStyle = 'rgba(12,15,19,.88)';
+    ctx.strokeStyle = obj.outline || '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, width, height, 6); else ctx.rect(x, y, width, height);
+    ctx.fill(); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    lines.forEach((line, index) => {
+      ctx.fillStyle = index === lines.length - 1 && targetLine ? '#ffe0a4' : '#ffffff';
+      ctx.fillText(line, 0, y + 4 + index * lineHeight, width - 10);
+    });
+  }
+
   function drawToken(obj, selected=false) {
-    const kind=obj.kind||'unit'; ctx.save(); ctx.translate(obj.x,obj.y);
+    const kind=obj.kind||'unit'; ctx.save(); ctx.globalAlpha = obj.opacity ?? 1; ctx.translate(obj.x,obj.y);
     ctx.beginPath(); ctx.arc(0,0,obj.radius+5,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,.58)'; ctx.fill();
     ctx.beginPath(); ctx.arc(0,0,obj.radius,0,Math.PI*2); ctx.fillStyle=obj.color; ctx.fill(); ctx.lineWidth=4; ctx.strokeStyle=obj.outline; ctx.stroke();
     ctx.beginPath(); ctx.arc(0,0,obj.radius-7,0,Math.PI*2); ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,.42)'; ctx.stroke();
     if(kind==='siege') drawSiegeSymbol(obj.radius); else if(kind==='boss') drawBossSymbol(obj.radius); else drawUnitLabel(obj);
+    drawTokenInfo(obj);
     if(selected){ctx.beginPath();ctx.arc(0,0,obj.radius+11,0,Math.PI*2);ctx.strokeStyle='#fff3a1';ctx.lineWidth=3;ctx.setLineDash([7,5]);ctx.stroke();}
     ctx.restore();
   }
 
   function drawText(obj, selected=false) {
-    ctx.save(); ctx.font=`700 ${obj.fontSize}px system-ui, "Yu Gothic UI", sans-serif`; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    ctx.save(); ctx.globalAlpha = obj.opacity ?? 1; ctx.font=`700 ${obj.fontSize}px system-ui, "Yu Gothic UI", sans-serif`; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     ctx.lineWidth=Math.max(3,obj.fontSize*.13); ctx.strokeStyle='rgba(0,0,0,.82)'; ctx.strokeText(obj.text,obj.x,obj.y); ctx.fillStyle=obj.color; ctx.fillText(obj.text,obj.x,obj.y);
     if(selected){const width=ctx.measureText(obj.text).width;ctx.strokeStyle='#fff3a1';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(obj.x-6,obj.y-obj.fontSize-7,width+12,obj.fontSize+18);} ctx.restore();
   }
@@ -764,31 +1336,51 @@ window.addEventListener('unhandledrejection', function (event) {
   function draw(showSelection=true) {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if(backgroundImage.complete&&backgroundImage.naturalWidth) ctx.drawImage(backgroundImage,0,0,canvas.width,canvas.height); else {ctx.fillStyle='#767676';ctx.fillRect(0,0,canvas.width,canvas.height);}
-    objects.forEach((obj,i)=>{const s=showSelection&&i===selectedIndex;if(obj.type==='arrow')drawArrow(obj,s);if(obj.type==='token')drawToken(obj,s);if(obj.type==='text')drawText(obj,s);});
+    const renderList = animationObjects || objects;
+    renderList.forEach((obj,i)=>{const s=!animationObjects&&showSelection&&i===selectedIndex;if(obj.type==='arrow')drawArrow(obj,s);if(obj.type==='token')drawToken(obj,s);if(obj.type==='text')drawText(obj,s);});
     if(temporaryArrow) drawArrow(temporaryArrow,false);
   }
 
-  function scaleObjects(oldW,oldH,newW,newH) {
-    if(!oldW||!oldH||!objects.length)return; const sx=newW/oldW, sy=newH/oldH, sr=Math.sqrt(sx*sy);
-    objects.forEach(obj=>{if(obj.type==='token'){obj.x*=sx;obj.y*=sy;obj.radius=clamp(obj.radius*sr,18,80);}else if(obj.type==='arrow'){obj.x1*=sx;obj.y1*=sy;obj.x2*=sx;obj.y2*=sy;obj.width=clamp(obj.width*sr,2,30);}else if(obj.type==='text'){obj.x*=sx;obj.y*=sy;obj.fontSize=clamp(obj.fontSize*sr,12,120);}});
+  function scaleObjectList(list,oldW,oldH,newW,newH) {
+    if(!oldW||!oldH||!list?.length)return; const sx=newW/oldW, sy=newH/oldH, sr=Math.sqrt(sx*sy);
+    list.forEach(obj=>{if(obj.type==='token'){obj.x*=sx;obj.y*=sy;obj.radius=clamp(obj.radius*sr,18,80);}else if(obj.type==='arrow'){obj.x1*=sx;obj.y1*=sy;obj.x2*=sx;obj.y2*=sy;obj.width=clamp(obj.width*sr,2,30);}else if(obj.type==='text'){obj.x*=sx;obj.y*=sy;obj.fontSize=clamp(obj.fontSize*sr,12,120);}});
   }
 
   function loadBackground(dataUrl,name,preserveObjects=true) {
+    if (isPlaying) stopPlayback('背景変更のため再生を停止しました。');
     const img=new Image();
-    img.onload=()=>{const oldW=canvas.width,oldH=canvas.height;if(preserveObjects)scaleObjects(oldW,oldH,img.naturalWidth,img.naturalHeight);backgroundImage=img;backgroundDataUrl=dataUrl;backgroundName=name||'背景画像';canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;selectedIndex=-1;resetHistory();draw();requestAnimationFrame(()=>{fitToView();updateSelectionUI();});setStatus(`背景を「${backgroundName}」に変更しました（${canvas.width}×${canvas.height}）。`);};
+    img.onload=()=>{
+      const oldW=canvas.width,oldH=canvas.height;
+      saveCurrentScene();
+      if(preserveObjects) scenes.forEach(scene=>scaleObjectList(scene.objects,oldW,oldH,img.naturalWidth,img.naturalHeight));
+      backgroundImage=img;backgroundDataUrl=dataUrl;backgroundName=name||'背景画像';canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+      objects=deepCopy(scenes[currentSceneIndex]?.objects||[]);selectedIndex=-1;resetHistory();draw();updateSceneUI();
+      requestAnimationFrame(()=>{fitToView();updateSelectionUI();});setStatus(`背景を「${backgroundName}」に変更しました（${canvas.width}×${canvas.height}）。`);
+    };
     img.onerror=()=>alert('背景画像を読み込めませんでした。別の画像を選んでください。'); img.src=dataUrl;
   }
 
   function addToken(side) {
     const isBlue=side==='blue'; const letter=/^[A-F]$/.test(currentUnitLetter)?currentUnitLetter:'A';
-    objects.push({type:'token',kind:'unit',side,unitLetter:letter,x:canvas.width/2+(isBlue?-42:42),y:canvas.height/2,radius:Math.max(24,Math.min(canvas.width,canvas.height)*.035),color:isBlue?'#187fc4':'#bd3434',outline:isBlue?'#8bd5ff':'#ff9b9b',label:`${isBlue?'味':'敵'}${letter}`});
+    objects.push({uid:makeUid('token'),type:'token',kind:'unit',side,unitLetter:letter,x:canvas.width/2+(isBlue?-42:42),y:canvas.height/2,radius:Math.max(24,Math.min(canvas.width,canvas.height)*.035),color:isBlue?'#187fc4':'#bd3434',outline:isBlue?'#8bd5ff':'#ff9b9b',label:`${isBlue?'味':'敵'}${letter}`,role:'',assignee:'',target:'',note:''});
     selectedIndex=objects.length-1;setMode('select');commitHistory();draw();updateSelectionUI();setStatus(`${isBlue?'味方':'敵'}部隊 ${letter} を追加しました。`);
   }
   function addSpecialToken(kind) {
-    const isSiege=kind==='siege'; objects.push({type:'token',kind,side:isSiege?'neutral':'boss',x:canvas.width/2+(isSiege?-48:48),y:canvas.height/2+75,radius:Math.max(27,Math.min(canvas.width,canvas.height)*.039),color:isSiege?'#70451f':'#5b1f55',outline:isSiege?'#ffd27a':'#ff7878',label:isSiege?'井蘭車':'強敵'});
+    const isSiege=kind==='siege'; objects.push({uid:makeUid('token'),type:'token',kind,side:isSiege?'neutral':'boss',x:canvas.width/2+(isSiege?-48:48),y:canvas.height/2+75,radius:Math.max(27,Math.min(canvas.width,canvas.height)*.039),color:isSiege?'#70451f':'#5b1f55',outline:isSiege?'#ffd27a':'#ff7878',label:isSiege?'井蘭車':'強敵',role:isSiege?'井蘭車運用':'強敵対応',assignee:'',target:'',note:''});
     selectedIndex=objects.length-1;setMode('select');commitHistory();draw();updateSelectionUI();setStatus(`${isSiege?'井蘭車':'強敵'}の専用駒を追加しました。`);
   }
   function addByKind(kind){if(kind==='blue'||kind==='red')addToken(kind);else addSpecialToken(kind);closeAddSheet();}
+
+  function updateUnitInfoToggle() {
+    toggleUnitInfoBtn.classList.toggle('active', showUnitInfo);
+    toggleUnitInfoBtn.textContent = `部隊情報：${showUnitInfo ? '表示' : '非表示'}`;
+  }
+  function toggleUnitInfo() {
+    showUnitInfo = !showUnitInfo;
+    updateUnitInfoToggle();
+    draw();
+    setStatus(`盤面上の部隊情報を${showUnitInfo ? '表示' : '非表示'}にしました。`);
+  }
 
   function deleteSelected() {
     if(selectedIndex<0){setStatus('削除する対象が選択されていません。');return;}
@@ -797,11 +1389,63 @@ window.addEventListener('unhandledrejection', function (event) {
   function clearAllObjects() {
     if(!objects.length)return;if(!confirm('配置した駒・矢印・文字をすべて消去しますか？'))return;objects=[];selectedIndex=-1;commitHistory();draw();updateSelectionUI();setStatus('配置をすべて消去しました。');
   }
+  function openDetailEditor(index) {
+    const obj = objects[index];
+    if (!obj || obj.type !== 'token') return;
+    detailEditingIndex = index;
+    detailLabel.value = obj.label || objectName(obj);
+    detailRole.value = obj.role || '';
+    detailAssignee.value = obj.assignee || '';
+    detailTarget.value = obj.target || '';
+    detailNote.value = obj.note || '';
+    syncIdentityAcrossScenes.checked = true;
+    syncTargetAcrossScenes.checked = false;
+    detailBackdrop.classList.add('show');
+    setTimeout(() => detailLabel.focus(), 40);
+  }
+  function closeDetailEditor() {
+    detailBackdrop.classList.remove('show');
+    detailEditingIndex = -1;
+  }
+  function applyFieldsToMatchingToken(list, uid, fields) {
+    const token = (list || []).find(item => item.type === 'token' && item.uid === uid);
+    if (token) Object.assign(token, fields);
+  }
+  function saveDetailEditor() {
+    const obj = objects[detailEditingIndex];
+    if (!obj || obj.type !== 'token') { closeDetailEditor(); return; }
+    const identityFields = {
+      label: (detailLabel.value.trim() || objectName(obj)).slice(0, 12),
+      role: detailRole.value.slice(0, 20),
+      assignee: detailAssignee.value.trim().slice(0, 30)
+    };
+    const sceneFields = {
+      target: detailTarget.value.trim().slice(0, 50),
+      note: detailNote.value.trim().slice(0, 160)
+    };
+    Object.assign(obj, identityFields, sceneFields);
+    if ((obj.kind || 'unit') === 'unit') {
+      const matched = obj.label.match(/[A-F]/i);
+      if (matched) obj.unitLetter = matched[0].toUpperCase();
+    }
+    if (syncIdentityAcrossScenes.checked || syncTargetAcrossScenes.checked) {
+      saveCurrentScene();
+      scenes.forEach(scene => {
+        if (!scene.initialized) return;
+        if (syncIdentityAcrossScenes.checked) applyFieldsToMatchingToken(scene.objects, obj.uid, identityFields);
+        if (syncTargetAcrossScenes.checked) applyFieldsToMatchingToken(scene.objects, obj.uid, sceneFields);
+      });
+      Object.assign(objects[detailEditingIndex], identityFields, sceneFields);
+    }
+    commitHistory();
+    draw(); updateSelectionUI(); updateSceneUI();
+    setStatus(`「${obj.label}」の役割・担当者・目標を保存しました。`);
+    closeDetailEditor();
+  }
   function editObject(index) {
-    const obj=objects[index];if(!obj)return;
-    if(obj.type==='token'){
-      const kind=obj.kind||'unit'; const message=kind==='unit'?'部隊番号または表示名を入力してください（例：味A、敵F）。':`${kind==='siege'?'井蘭車':'強敵'}の表示名を入力してください。`;
-      const next=prompt(message,obj.label);if(next!==null&&next.trim()){obj.label=next.trim().slice(0,8);if(kind==='unit'){const matched=obj.label.match(/[A-F]/i);if(matched)obj.unitLetter=matched[0].toUpperCase();}commitHistory();draw();updateSelectionUI();}
+    const obj = objects[index];if(!obj)return;
+    if(obj.type==='token') {
+      openDetailEditor(index);
     } else if(obj.type==='text') {
       const next=prompt('表示する文字を入力してください。',obj.text);if(next!==null&&next.trim()){obj.text=next.trim().slice(0,80);commitHistory();draw();updateSelectionUI();}
     } else setStatus('矢印の文字編集には対応していません。');
@@ -823,6 +1467,7 @@ window.addEventListener('unhandledrejection', function (event) {
   }
 
   canvas.addEventListener('pointerdown',event=>{
+    if (isPlaying) { event.preventDefault(); return; }
     event.preventDefault();
     activePointers.set(event.pointerId,{clientX:event.clientX,clientY:event.clientY,pointerType:event.pointerType});
     try{canvas.setPointerCapture(event.pointerId);}catch{}
@@ -834,11 +1479,11 @@ window.addEventListener('unhandledrejection', function (event) {
       dragging=true;dragKind='pan';dragStart={clientX:event.clientX,clientY:event.clientY,scrollLeft:boardWrap.scrollLeft,scrollTop:boardWrap.scrollTop};return;
     }
     if(mode==='arrow'){
-      dragging=true;dragKind='arrow';temporaryArrow={type:'arrow',x1:point.x,y1:point.y,x2:point.x,y2:point.y,color:drawColor.value,width:clamp(Number(arrowWidthInput.value)||8,2,24)};draw();return;
+      dragging=true;dragKind='arrow';temporaryArrow={uid:makeUid('arrow'),type:'arrow',x1:point.x,y1:point.y,x2:point.x,y2:point.y,color:drawColor.value,width:clamp(Number(arrowWidthInput.value)||8,2,24)};draw();return;
     }
     if(mode==='text'){
       const text=prompt('表示する文字を入力してください。','集合');
-      if(text!==null&&text.trim()){objects.push({type:'text',x:point.x,y:point.y,text:text.trim().slice(0,80),color:drawColor.value,fontSize:clamp(Number(fontSizeInput.value)||30,12,96)});selectedIndex=objects.length-1;commitHistory();draw();updateSelectionUI();}
+      if(text!==null&&text.trim()){objects.push({uid:makeUid('text'),type:'text',x:point.x,y:point.y,text:text.trim().slice(0,80),color:drawColor.value,fontSize:clamp(Number(fontSizeInput.value)||30,12,96)});selectedIndex=objects.length-1;commitHistory();draw();updateSelectionUI();}
       return;
     }
 
@@ -880,7 +1525,7 @@ window.addEventListener('unhandledrejection', function (event) {
   canvas.addEventListener('pointerup',finishPointer);
   canvas.addEventListener('pointercancel',finishPointer);
   canvas.addEventListener('lostpointercapture',event=>{if(activePointers.has(event.pointerId))finishPointer(event);});
-  canvas.addEventListener('dblclick',event=>{const index=findObjectAt(getCanvasPoint(event));if(index>=0){selectedIndex=index;updateSelectionUI();editObject(index);}});
+  canvas.addEventListener('dblclick',event=>{if(isPlaying)return;const index=findObjectAt(getCanvasPoint(event));if(index>=0){selectedIndex=index;updateSelectionUI();editObject(index);}});
   canvas.addEventListener('contextmenu',event=>event.preventDefault());
 
   function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -888,14 +1533,56 @@ window.addEventListener('unhandledrejection', function (event) {
 
   bgInput.addEventListener('change',()=>{const file=bgInput.files?.[0];if(!file)return;if(!file.type.startsWith('image/')){alert('画像ファイルを選択してください。');bgInput.value='';return;}const reader=new FileReader();reader.onload=()=>loadBackground(String(reader.result),file.name,true);reader.onerror=()=>alert('画像ファイルを読み込めませんでした。');reader.readAsDataURL(file);bgInput.value='';});
   document.getElementById('resetBgBtn').addEventListener('click',()=>loadBackground(DEFAULT_BACKGROUND,'初期覇道マップ.jpeg',true));
-  document.getElementById('saveJsonBtn').addEventListener('click',()=>{const data={app:'hado-tactics-board',version:3,savedAt:new Date().toISOString(),background:{name:backgroundName,dataUrl:backgroundDataUrl,width:canvas.width,height:canvas.height},view:{zoom},objects};downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`${safeBaseName(backgroundName)}_作戦データ.json`);setStatus('編集データを保存しました。背景画像も含まれます。');});
-  loadJsonInput.addEventListener('change',()=>{const file=loadJsonInput.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(String(reader.result));if(!data||!Array.isArray(data.objects))throw new Error('形式が違います');const nextObjects=deepCopy(data.objects);if(data.background?.dataUrl){const img=new Image();img.onload=()=>{backgroundImage=img;backgroundDataUrl=data.background.dataUrl;backgroundName=data.background.name||'読込背景';canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;objects=nextObjects;selectedIndex=-1;resetHistory();draw();requestAnimationFrame(fitToView);updateSelectionUI();setStatus(`編集データ「${file.name}」を読み込みました。`);};img.onerror=()=>alert('編集データ内の背景画像を読み込めませんでした。');img.src=data.background.dataUrl;}else{objects=nextObjects;selectedIndex=-1;resetHistory();draw();updateSelectionUI();setStatus(`編集データ「${file.name}」を読み込みました（背景は現在のままです）。`);}}catch(error){alert(`編集データを読み込めませんでした。\n${error.message}`);}};reader.readAsText(file,'UTF-8');loadJsonInput.value='';});
+  document.getElementById('saveJsonBtn').addEventListener('click',()=>{
+    saveCurrentScene();
+    const data={app:'hado-tactics-board',version:5,savedAt:new Date().toISOString(),background:{name:backgroundName,dataUrl:backgroundDataUrl,width:canvas.width,height:canvas.height},view:{zoom,showUnitInfo},currentSceneIndex,scenes:deepCopy(scenes),objects:deepCopy(objects)};
+    downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`${safeBaseName(backgroundName)}_時間別作戦データ.json`);
+    setStatus('時間別シーンを含む編集データを保存しました。');
+  });
+  loadJsonInput.addEventListener('change',()=>{
+    const file=loadJsonInput.files?.[0];if(!file)return;
+    if(isPlaying)stopPlayback('データ読込のため再生を停止しました。');
+    const reader=new FileReader();
+    reader.onload=()=>{try{
+      const data=JSON.parse(String(reader.result));
+      if(!data||(!Array.isArray(data.scenes)&&!Array.isArray(data.objects)))throw new Error('形式が違います');
+      const loadedScenes=normalizeScenes(data.scenes, data.objects || []);
+      const loadedIndex=clamp(Number(data.currentSceneIndex)||0,0,loadedScenes.length-1);
+      const applyLoaded=()=>{
+        scenes=loadedScenes;currentSceneIndex=loadedIndex;
+        showUnitInfo = data.view?.showUnitInfo !== false; updateUnitInfoToggle();
+        if(!scenes[currentSceneIndex].initialized){scenes[currentSceneIndex].initialized=true;scenes[currentSceneIndex].objects=[];}
+        objects=ensureObjectIds(deepCopy(scenes[currentSceneIndex].objects));selectedIndex=-1;animationObjects=null;resetHistory();draw();updateSceneUI(true);updateSelectionUI();requestAnimationFrame(fitToView);setStatus(`編集データ「${file.name}」を読み込みました（${scenes.length}場面）。`);
+      };
+      if(data.background?.dataUrl){const img=new Image();img.onload=()=>{backgroundImage=img;backgroundDataUrl=data.background.dataUrl;backgroundName=data.background.name||'読込背景';canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;applyLoaded();};img.onerror=()=>alert('編集データ内の背景画像を読み込めませんでした。');img.src=data.background.dataUrl;}
+      else applyLoaded();
+    }catch(error){alert(`編集データを読み込めませんでした。
+${error.message}`);}};
+    reader.readAsText(file,'UTF-8');loadJsonInput.value='';
+  });
   document.getElementById('exportPngBtn').addEventListener('click',()=>{const oldSelected=selectedIndex;draw(false);canvas.toBlob(blob=>{selectedIndex=oldSelected;draw(true);if(!blob){alert('PNG画像を作成できませんでした。');return;}downloadBlob(blob,`${safeBaseName(backgroundName)}_作戦図.png`);setStatus('選択枠を除いた作戦図をPNG画像で保存しました。');},'image/png');});
 
-  document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{setMode(btn.dataset.mode);closeToolbar();}));
-  document.querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>addByKind(btn.dataset.add)));
+  document.getElementById('prevSceneBtn').addEventListener('click',()=>switchScene(currentSceneIndex-1));
+  document.getElementById('nextSceneBtn').addEventListener('click',()=>switchScene(currentSceneIndex+1));
+  playScenesBtn.addEventListener('click',playScenes);
+  document.getElementById('addSceneBtn').addEventListener('click',addScene);
+  document.getElementById('renameSceneBtn').addEventListener('click',renameScene);
+  document.getElementById('deleteSceneBtn').addEventListener('click',deleteScene);
+  document.querySelectorAll('[data-scene-action]').forEach(button=>button.addEventListener('click',()=>{
+    if(button.dataset.sceneAction==='add')addScene();
+    if(button.dataset.sceneAction==='rename')renameScene();
+    if(button.dataset.sceneAction==='delete')deleteScene();
+    closeToolbar();
+  }));
+
+  document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{if(isPlaying)return;setMode(btn.dataset.mode);closeToolbar();}));
+  document.querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{if(!isPlaying)addByKind(btn.dataset.add);}));
   document.querySelectorAll('[data-unit-letter]').forEach(select=>select.addEventListener('change',()=>{currentUnitLetter=select.value;document.querySelectorAll('[data-unit-letter]').forEach(other=>other.value=currentUnitLetter);}));
-  editBtn.addEventListener('click',editSelected);deleteBtn.addEventListener('click',deleteSelected);document.getElementById('mobileEditBtn').addEventListener('click',editSelected);document.getElementById('mobileDeleteBtn').addEventListener('click',deleteSelected);
+  editBtn.addEventListener('click',editSelected);toggleUnitInfoBtn.addEventListener('click',toggleUnitInfo);deleteBtn.addEventListener('click',deleteSelected);document.getElementById('mobileEditBtn').addEventListener('click',editSelected);document.getElementById('mobileDeleteBtn').addEventListener('click',deleteSelected);
+  document.getElementById('saveDetailBtn').addEventListener('click',saveDetailEditor);
+  document.getElementById('cancelDetailBtn').addEventListener('click',closeDetailEditor);
+  document.getElementById('closeDetailBtn').addEventListener('click',closeDetailEditor);
+  detailBackdrop.addEventListener('click',event=>{if(event.target===detailBackdrop)closeDetailEditor();});
   document.getElementById('clearBtn').addEventListener('click',clearAllObjects);undoBtn.addEventListener('click',undo);redoBtn.addEventListener('click',redo);
   document.getElementById('zoomInBtn').addEventListener('click',()=>applyZoom(zoom*1.22));
   document.getElementById('zoomOutBtn').addEventListener('click',()=>applyZoom(zoom/1.22));
@@ -911,12 +1598,12 @@ window.addEventListener('unhandledrejection', function (event) {
   function closeAddSheet(){addSheetBackdrop.classList.remove('show');}
   document.getElementById('openAddSheet').addEventListener('click',openAddSheet);document.getElementById('closeAddSheet').addEventListener('click',closeAddSheet);addSheetBackdrop.addEventListener('click',event=>{if(event.target===addSheetBackdrop)closeAddSheet();});
 
-  document.addEventListener('keydown',event=>{const tag=document.activeElement?.tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;if(event.key==='Delete'||event.key==='Backspace'){event.preventDefault();deleteSelected();}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){event.preventDefault();event.shiftKey?redo():undo();}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='y'){event.preventDefault();redo();}if(event.key==='Escape'){closeToolbar();closeAddSheet();}});
+  document.addEventListener('keydown',event=>{const tag=document.activeElement?.tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;if(event.key==='Delete'||event.key==='Backspace'){event.preventDefault();deleteSelected();}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='z'){event.preventDefault();event.shiftKey?redo():undo();}if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='y'){event.preventDefault();redo();}if(event.key==='Escape'){if(detailBackdrop.classList.contains('show'))closeDetailEditor();else if(isPlaying)stopPlayback();closeToolbar();closeAddSheet();}if(event.code==='Space'){event.preventDefault();playScenes();}if(event.altKey&&event.key==='ArrowLeft'){event.preventDefault();switchScene(currentSceneIndex-1);}if(event.altKey&&event.key==='ArrowRight'){event.preventDefault();switchScene(currentSceneIndex+1);}});
 
   window.addEventListener('resize',()=>{layoutStage();if(keepFitOnResize)fitToView();});
   window.addEventListener('orientationchange',()=>setTimeout(fitToView,220));
 
-  backgroundImage.onload=()=>{canvas.width=backgroundImage.naturalWidth;canvas.height=backgroundImage.naturalHeight;resetHistory();draw();requestAnimationFrame(()=>{fitToView();updateSelectionUI();setMode('select');});};
+  backgroundImage.onload=()=>{canvas.width=backgroundImage.naturalWidth;canvas.height=backgroundImage.naturalHeight;scenes=createDefaultScenes([]);currentSceneIndex=0;objects=[];resetHistory();updateUnitInfoToggle();draw();updateSceneUI(true);requestAnimationFrame(()=>{fitToView();updateSelectionUI();setMode('select');});};
   backgroundImage.src=DEFAULT_BACKGROUND;
 })();
 </script>
