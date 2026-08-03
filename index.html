@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111317">
-<title>覇道戦術ボード 時間別シーン・部隊情報対応版</title>
+<title>覇道戦術ボード 点線・折りたたみ時再生対応版</title>
 <style>
   :root {
     color-scheme: dark;
@@ -525,6 +525,66 @@
     .detail-actions button { flex: 1; min-height: 48px; }
   }
 
+
+  #menuCollapseBtn {
+    min-width: 122px;
+    white-space: nowrap;
+  }
+  #collapsedControls {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 55;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  #menuExpandFloatBtn,
+  #playScenesFloatBtn {
+    min-height: 42px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(17,19,23,.94);
+    border: 1px solid #596371;
+    box-shadow: 0 8px 18px rgba(0,0,0,.35);
+  }
+  #playScenesFloatBtn {
+    background: rgba(109,70,30,.96);
+    border-color: #c7893b;
+    min-width: 88px;
+  }
+  #playScenesFloatBtn.playing {
+    background: rgba(101,48,54,.96);
+    border-color: #d76a72;
+  }
+  #app.menu-collapsed header,
+  #app.menu-collapsed #toolbar,
+  #app.menu-collapsed #timelinePanel {
+    display: none !important;
+  }
+  #app.menu-collapsed #collapsedControls {
+    display: flex;
+  }
+  .shape-note { color: var(--muted); font-size: 11px; }
+  @media (max-width: 900px) {
+    #menuCollapseBtn {
+      min-width: 46px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    #collapsedControls {
+      top: calc(env(safe-area-inset-top) + 10px);
+      left: 10px;
+      gap: 6px;
+    }
+    #menuExpandFloatBtn,
+    #playScenesFloatBtn {
+      min-height: 40px;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -533,8 +593,9 @@
   <header>
     <div class="title-wrap">
       <h1>覇道戦術ボード</h1>
-      <p>試作第四弾・時間別シーン／部隊情報・担当者・目標設定対応</p>
+      <p>試作第六弾・点線／折りたたみ時再生対応</p>
     </div>
+    <button id="menuCollapseBtn" type="button" aria-label="メニューを隠す">メニューを隠す</button>
     <button id="settingsToggle" type="button" aria-label="設定を開く">☰</button>
   </header>
 
@@ -554,6 +615,8 @@
       <button type="button" data-mode="pan">盤面移動</button>
       <button type="button" data-mode="select">選択・移動</button>
       <button type="button" data-mode="arrow">矢印</button>
+      <button type="button" data-mode="rect">□ 四角</button>
+      <button type="button" data-mode="ellipse">○ 丸</button>
       <button type="button" data-mode="text">文字</button>
     </div>
 
@@ -569,10 +632,17 @@
     </div>
 
     <div class="group">
-      <span class="group-label">矢印・文字</span>
+      <span class="group-label">線・図形・文字</span>
       <input id="drawColor" type="color" value="#26a7ff" title="矢印・文字の色">
-      <label>太さ <input id="arrowWidth" type="number" min="2" max="24" value="8"></label>
+      <label>線幅 <input id="arrowWidth" type="number" min="2" max="24" value="8"></label>
+      <label>線種
+        <select id="lineStyle" title="矢印・図形の線種">
+          <option value="solid" selected>実線</option>
+          <option value="dashed">点線</option>
+        </select>
+      </label>
       <label>文字 <input id="fontSize" type="number" min="12" max="96" value="30"></label>
+      <span class="shape-note">※ 選択中の矢印・図形にも線種を反映できます</span>
     </div>
 
     <div class="group">
@@ -653,6 +723,11 @@
       <div id="status" class="status">準備中…</div>
     </aside>
   </main>
+
+  <div id="collapsedControls" aria-label="折りたたみ時操作">
+    <button id="menuExpandFloatBtn" type="button" aria-label="メニューを表示">☰ メニュー表示</button>
+    <button id="playScenesFloatBtn" type="button" aria-label="現在の場面から再生">▶ 再生</button>
+  </div>
 
   <div id="mobileStatus"></div>
 
@@ -764,6 +839,7 @@ window.addEventListener('unhandledrejection', function (event) {
   const loadJsonInput = document.getElementById('loadJsonInput');
   const drawColor = document.getElementById('drawColor');
   const arrowWidthInput = document.getElementById('arrowWidth');
+  const lineStyleInput = document.getElementById('lineStyle');
   const fontSizeInput = document.getElementById('fontSize');
   const undoBtn = document.getElementById('undoBtn');
   const redoBtn = document.getElementById('redoBtn');
@@ -786,6 +862,10 @@ window.addEventListener('unhandledrejection', function (event) {
   const playScenesBtn = document.getElementById('playScenesBtn');
   const playbackBadge = document.getElementById('playbackBadge');
   const sceneDurationInput = document.getElementById('sceneDuration');
+  const app = document.getElementById('app');
+  const menuCollapseBtn = document.getElementById('menuCollapseBtn');
+  const menuExpandFloatBtn = document.getElementById('menuExpandFloatBtn');
+  const playScenesFloatBtn = document.getElementById('playScenesFloatBtn');
 
   let backgroundImage = new Image();
   let backgroundDataUrl = DEFAULT_BACKGROUND;
@@ -804,6 +884,9 @@ window.addEventListener('unhandledrejection', function (event) {
   let dragStart = null;
   let objectStart = null;
   let temporaryArrow = null;
+  let temporaryShape = null;
+  let resizeHandle = null;
+  let menuCollapsed = false;
   let primaryPointerId = null;
   let activePointers = new Map();
   let pinchState = null;
@@ -907,6 +990,9 @@ window.addEventListener('unhandledrejection', function (event) {
     });
     playScenesBtn.classList.toggle('playing', isPlaying);
     playScenesBtn.textContent = isPlaying ? '■ 停止' : '▶ 再生';
+    playScenesFloatBtn.classList.toggle('playing', isPlaying);
+    playScenesFloatBtn.textContent = isPlaying ? '■ 停止' : '▶ 再生';
+    playScenesFloatBtn.setAttribute('aria-label', isPlaying ? '再生を停止' : '現在の場面から再生');
     playbackBadge.classList.toggle('show', isPlaying);
     if (isPlaying) playbackBadge.textContent = `再生中：${scenes[currentSceneIndex]?.name || ''}`;
     if (scrollActive) requestAnimationFrame(() => sceneStrip.querySelector('.scene-button.active')?.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'}));
@@ -984,6 +1070,8 @@ window.addEventListener('unhandledrejection', function (event) {
       } else if (result.type === 'text') {
         result.x = lerp(fromObj.x, toObj.x, t); result.y = lerp(fromObj.y, toObj.y, t);
         result.fontSize = lerp(fromObj.fontSize, toObj.fontSize, t);
+      } else if (result.type === 'shape') {
+        ['x1','y1','x2','y2','width'].forEach(key => result[key] = lerp(fromObj[key], toObj[key], t));
       }
     }
     return result;
@@ -1110,6 +1198,7 @@ window.addEventListener('unhandledrejection', function (event) {
     if (obj.type === 'token') return obj.label || (obj.kind === 'siege' ? '井蘭車' : obj.kind === 'boss' ? '強敵' : '部隊');
     if (obj.type === 'text') return `文字「${obj.text}」`;
     if (obj.type === 'arrow') return '進軍矢印';
+    if (obj.type === 'shape') return obj.shape === 'ellipse' ? '丸枠' : '四角枠';
     return '対象';
   }
   function escapeHtml(value) {
@@ -1132,10 +1221,11 @@ window.addEventListener('unhandledrejection', function (event) {
   function updateSelectionUI() {
     const obj = objects[selectedIndex];
     const has = !!obj;
-    editBtn.disabled = isPlaying || !has || obj.type === 'arrow';
+    const editable = has && (obj.type === 'token' || obj.type === 'text');
+    editBtn.disabled = isPlaying || !editable;
     editBtn.textContent = obj?.type === 'token' ? '部隊・駒情報を編集' : '名前・文字を編集';
     deleteBtn.disabled = isPlaying || !has;
-    document.getElementById('mobileEditBtn').disabled = isPlaying || !has || obj?.type === 'arrow';
+    document.getElementById('mobileEditBtn').disabled = isPlaying || !editable;
     document.getElementById('mobileEditBtn').textContent = obj?.type === 'token' ? '詳細' : '編集';
     document.getElementById('mobileDeleteBtn').disabled = isPlaying || !has;
     selectionBar.classList.toggle('show', has);
@@ -1143,6 +1233,7 @@ window.addEventListener('unhandledrejection', function (event) {
       ? `｜${obj.role || '役割未設定'}${obj.assignee ? `・${obj.assignee}` : ''}${obj.target ? ` → ${obj.target}` : ''}`
       : '';
     selectionLabel.textContent = has ? `選択中：${objectName(obj)}${summary}` : '未選択';
+    if (obj && (obj.type === 'arrow' || obj.type === 'shape')) lineStyleInput.value = obj.lineStyle === 'dashed' ? 'dashed' : 'solid';
     updateSelectedInfo(obj);
   }
 
@@ -1150,14 +1241,34 @@ window.addEventListener('unhandledrejection', function (event) {
     document.querySelectorAll('[data-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
     canvas.classList.toggle('pan-cursor', mode === 'pan');
   }
+  function applyMenuCollapsed(nextCollapsed, silent = false) {
+    menuCollapsed = !!nextCollapsed;
+    app.classList.toggle('menu-collapsed', menuCollapsed);
+    menuCollapseBtn.textContent = menuCollapsed ? 'メニューを表示' : 'メニューを隠す';
+    menuCollapseBtn.setAttribute('aria-label', menuCollapsed ? 'メニューを表示' : 'メニューを隠す');
+    menuExpandFloatBtn.setAttribute('aria-label', menuCollapsed ? 'メニューを表示' : 'メニューを隠す');
+    closeToolbar();
+    requestAnimationFrame(() => {
+      layoutStage();
+      if (keepFitOnResize) fitToView();
+      else layoutStage();
+    });
+    if (!silent) setStatus(menuCollapsed ? 'メニューバーを隠しました。' : 'メニューバーを表示しました。');
+  }
+  function toggleMenuCollapsed(forceState) {
+    applyMenuCollapsed(typeof forceState === 'boolean' ? forceState : !menuCollapsed);
+  }
   function setMode(nextMode) {
     mode = nextMode;
     temporaryArrow = null;
+    temporaryShape = null;
     cancelLongPress();
     updateModeButtons();
     if (mode === 'pan') setStatus('盤面移動モード：指またはマウスで地図を動かせます。');
     if (mode === 'select') setStatus('選択モード：駒をドラッグ。スマホでは長押しで部隊情報や文字を編集できます。');
     if (mode === 'arrow') setStatus('矢印モード：始点から終点までドラッグしてください。');
+    if (mode === 'rect') setStatus('四角枠モード：ドラッグで範囲を囲みます。選択後は角をドラッグしてサイズ変更できます。');
+    if (mode === 'ellipse') setStatus('丸枠モード：ドラッグで丸枠を描きます。選択後は角をドラッグしてサイズ変更できます。');
     if (mode === 'text') setStatus('文字モード：置きたい場所をタップしてください。');
     draw();
   }
@@ -1220,10 +1331,44 @@ window.addEventListener('unhandledrejection', function (event) {
     const t = clamp((wx * vx + wy * vy) / lengthSq, 0, 1);
     return Math.hypot(px - (x1 + t * vx), py - (y1 + t * vy));
   }
+  function normalizedShapeBounds(obj) {
+    const left = Math.min(obj.x1, obj.x2), right = Math.max(obj.x1, obj.x2);
+    const top = Math.min(obj.y1, obj.y2), bottom = Math.max(obj.y1, obj.y2);
+    return { left, right, top, bottom, width: right - left, height: bottom - top, cx: (left + right) / 2, cy: (top + bottom) / 2 };
+  }
+  function shapeHandlePoints(obj) {
+    const b = normalizedShapeBounds(obj);
+    return [
+      { key: 'nw', x: b.left, y: b.top },
+      { key: 'ne', x: b.right, y: b.top },
+      { key: 'sw', x: b.left, y: b.bottom },
+      { key: 'se', x: b.right, y: b.bottom }
+    ];
+  }
+  function hitShapeHandle(obj, point) {
+    if (!obj || obj.type !== 'shape') return null;
+    const radius = window.matchMedia('(pointer: coarse)').matches ? 18 : 12;
+    for (const handle of shapeHandlePoints(obj)) {
+      if (Math.hypot(point.x - handle.x, point.y - handle.y) <= radius) return handle.key;
+    }
+    return null;
+  }
   function hitObject(obj, point) {
     const touchBoost = window.matchMedia('(pointer: coarse)').matches ? 15 : 8;
     if (obj.type === 'token') return Math.hypot(point.x - obj.x, point.y - obj.y) <= obj.radius + touchBoost;
     if (obj.type === 'arrow') return distanceToSegment(point.x, point.y, obj.x1, obj.y1, obj.x2, obj.y2) <= Math.max(14, obj.width + touchBoost);
+    if (obj.type === 'shape') {
+      const b = normalizedShapeBounds(obj);
+      const expand = Math.max(touchBoost, obj.width + 6);
+      if (obj.shape === 'ellipse') {
+        const rx = Math.max(1, b.width / 2 + expand);
+        const ry = Math.max(1, b.height / 2 + expand);
+        const dx = (point.x - b.cx) / rx;
+        const dy = (point.y - b.cy) / ry;
+        return dx * dx + dy * dy <= 1;
+      }
+      return point.x >= b.left - expand && point.x <= b.right + expand && point.y >= b.top - expand && point.y <= b.bottom + expand;
+    }
     if (obj.type === 'text') {
       ctx.save(); ctx.font = `700 ${obj.fontSize}px system-ui, "Yu Gothic UI", sans-serif`;
       const width = ctx.measureText(obj.text).width; ctx.restore();
@@ -1242,7 +1387,9 @@ window.addEventListener('unhandledrejection', function (event) {
     const headLength = Math.max(20, obj.width * 3.3);
     ctx.save(); ctx.globalAlpha = obj.opacity ?? 1; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color; ctx.lineWidth = obj.width;
+    if (obj.lineStyle === 'dashed') ctx.setLineDash([Math.max(10, obj.width * 2.2), Math.max(7, obj.width * 1.5)]);
     ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
+    ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(obj.x2, obj.y2);
     ctx.lineTo(obj.x2 - headLength * Math.cos(angle - Math.PI / 6), obj.y2 - headLength * Math.sin(angle - Math.PI / 6));
     ctx.lineTo(obj.x2 - headLength * Math.cos(angle + Math.PI / 6), obj.y2 - headLength * Math.sin(angle + Math.PI / 6));
@@ -1333,17 +1480,59 @@ window.addEventListener('unhandledrejection', function (event) {
     if(selected){const width=ctx.measureText(obj.text).width;ctx.strokeStyle='#fff3a1';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.strokeRect(obj.x-6,obj.y-obj.fontSize-7,width+12,obj.fontSize+18);} ctx.restore();
   }
 
+  function drawShape(obj, selected=false) {
+    const b = normalizedShapeBounds(obj);
+    ctx.save();
+    ctx.globalAlpha = obj.opacity ?? 1;
+    ctx.strokeStyle = obj.color;
+    ctx.lineWidth = obj.width;
+    ctx.lineJoin = 'round';
+    if (obj.lineStyle === 'dashed') ctx.setLineDash([Math.max(10, obj.width * 2.2), Math.max(7, obj.width * 1.5)]);
+    if (obj.shape === 'ellipse') {
+      ctx.beginPath();
+      ctx.ellipse(b.cx, b.cy, Math.max(1, b.width / 2), Math.max(1, b.height / 2), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(b.left, b.top, Math.max(1, b.width), Math.max(1, b.height));
+    }
+    ctx.setLineDash([]);
+    if (selected) {
+      ctx.setLineDash([7,5]);
+      ctx.strokeStyle = '#fff3a1';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(b.left - 4, b.top - 4, b.width + 8, b.height + 8);
+      ctx.setLineDash([]);
+      for (const handle of shapeHandlePoints(obj)) {
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#111317';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.rect(handle.x - 6, handle.y - 6, 12, 12);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   function draw(showSelection=true) {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if(backgroundImage.complete&&backgroundImage.naturalWidth) ctx.drawImage(backgroundImage,0,0,canvas.width,canvas.height); else {ctx.fillStyle='#767676';ctx.fillRect(0,0,canvas.width,canvas.height);}
     const renderList = animationObjects || objects;
-    renderList.forEach((obj,i)=>{const s=!animationObjects&&showSelection&&i===selectedIndex;if(obj.type==='arrow')drawArrow(obj,s);if(obj.type==='token')drawToken(obj,s);if(obj.type==='text')drawText(obj,s);});
+    renderList.forEach((obj,i)=>{
+      const s=!animationObjects&&showSelection&&i===selectedIndex;
+      if(obj.type==='arrow') drawArrow(obj,s);
+      if(obj.type==='shape') drawShape(obj,s);
+      if(obj.type==='token') drawToken(obj,s);
+      if(obj.type==='text') drawText(obj,s);
+    });
     if(temporaryArrow) drawArrow(temporaryArrow,false);
+    if(temporaryShape) drawShape(temporaryShape,false);
   }
 
   function scaleObjectList(list,oldW,oldH,newW,newH) {
     if(!oldW||!oldH||!list?.length)return; const sx=newW/oldW, sy=newH/oldH, sr=Math.sqrt(sx*sy);
-    list.forEach(obj=>{if(obj.type==='token'){obj.x*=sx;obj.y*=sy;obj.radius=clamp(obj.radius*sr,18,80);}else if(obj.type==='arrow'){obj.x1*=sx;obj.y1*=sy;obj.x2*=sx;obj.y2*=sy;obj.width=clamp(obj.width*sr,2,30);}else if(obj.type==='text'){obj.x*=sx;obj.y*=sy;obj.fontSize=clamp(obj.fontSize*sr,12,120);}});
+    list.forEach(obj=>{if(obj.type==='token'){obj.x*=sx;obj.y*=sy;obj.radius=clamp(obj.radius*sr,18,80);}else if(obj.type==='arrow'){obj.x1*=sx;obj.y1*=sy;obj.x2*=sx;obj.y2*=sy;obj.width=clamp(obj.width*sr,2,30);}else if(obj.type==='shape'){obj.x1*=sx;obj.y1*=sy;obj.x2*=sx;obj.y2*=sy;obj.width=clamp(obj.width*sr,2,30);}else if(obj.type==='text'){obj.x*=sx;obj.y*=sy;obj.fontSize=clamp(obj.fontSize*sr,12,120);}});
   }
 
   function loadBackground(dataUrl,name,preserveObjects=true) {
@@ -1448,7 +1637,8 @@ window.addEventListener('unhandledrejection', function (event) {
       openDetailEditor(index);
     } else if(obj.type==='text') {
       const next=prompt('表示する文字を入力してください。',obj.text);if(next!==null&&next.trim()){obj.text=next.trim().slice(0,80);commitHistory();draw();updateSelectionUI();}
-    } else setStatus('矢印の文字編集には対応していません。');
+    } else if(obj.type==='shape') setStatus('図形はドラッグで移動、角のハンドルをドラッグしてサイズ変更できます。');
+    else setStatus('矢印の文字編集には対応していません。');
   }
   function editSelected(){if(selectedIndex<0){setStatus('編集する対象を選択してください。');return;}editObject(selectedIndex);}
 
@@ -1461,7 +1651,7 @@ window.addEventListener('unhandledrejection', function (event) {
   function pointerMidpoint(values){const [a,b]=values;return{x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2};}
   function pointerDistance(values){const [a,b]=values;return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
   function beginPinch(){
-    cancelLongPress();temporaryArrow=null;dragging=false;dragKind=null;objectStart=null;
+    cancelLongPress();temporaryArrow=null;temporaryShape=null;dragging=false;dragKind=null;objectStart=null;resizeHandle=null;
     const vals=[...activePointers.values()].slice(0,2);const mid=pointerMidpoint(vals);
     pinchState={startDistance:Math.max(10,pointerDistance(vals)),startZoom:zoom,boardPoint:boardPointAtClient(mid.x,mid.y)};
   }
@@ -1479,7 +1669,14 @@ window.addEventListener('unhandledrejection', function (event) {
       dragging=true;dragKind='pan';dragStart={clientX:event.clientX,clientY:event.clientY,scrollLeft:boardWrap.scrollLeft,scrollTop:boardWrap.scrollTop};return;
     }
     if(mode==='arrow'){
-      dragging=true;dragKind='arrow';temporaryArrow={uid:makeUid('arrow'),type:'arrow',x1:point.x,y1:point.y,x2:point.x,y2:point.y,color:drawColor.value,width:clamp(Number(arrowWidthInput.value)||8,2,24)};draw();return;
+      dragging=true;dragKind='arrow';temporaryArrow={uid:makeUid('arrow'),type:'arrow',x1:point.x,y1:point.y,x2:point.x,y2:point.y,color:drawColor.value,width:clamp(Number(arrowWidthInput.value)||8,2,24),lineStyle:lineStyleInput.value};draw();return;
+    }
+    if(mode==='rect' || mode==='ellipse'){
+      dragging = true;
+      dragKind = 'shape-create';
+      temporaryShape = { uid: makeUid('shape'), type: 'shape', shape: mode === 'rect' ? 'rect' : 'ellipse', x1: point.x, y1: point.y, x2: point.x, y2: point.y, color: drawColor.value, width: clamp(Number(arrowWidthInput.value)||8,2,24), lineStyle: lineStyleInput.value };
+      draw();
+      return;
     }
     if(mode==='text'){
       const text=prompt('表示する文字を入力してください。','集合');
@@ -1488,7 +1685,17 @@ window.addEventListener('unhandledrejection', function (event) {
     }
 
     selectedIndex=findObjectAt(point);draw();updateSelectionUI();
-    if(selectedIndex>=0){dragging=true;dragKind='object';dragStart=point;objectStart=deepCopy(objects[selectedIndex]);startLongPress(event,selectedIndex);setStatus('選択中：ドラッグで移動、長押しで表示名を変更できます。',false);}
+    if(selectedIndex>=0){
+      const selectedObj = objects[selectedIndex];
+      const handle = selectedObj.type === 'shape' ? hitShapeHandle(selectedObj, point) : null;
+      dragging=true;
+      dragKind = handle ? 'shape-resize' : 'object';
+      dragStart=point;
+      objectStart=deepCopy(selectedObj);
+      resizeHandle = handle;
+      if (!handle && (selectedObj.type === 'token' || selectedObj.type === 'text')) startLongPress(event,selectedIndex);
+      setStatus(handle ? '図形の角をドラッグしてサイズ変更できます。' : '選択中：ドラッグで移動できます。',false);
+    }
     else setStatus('何もない場所を選択しました。',false);
   });
 
@@ -1504,12 +1711,26 @@ window.addEventListener('unhandledrejection', function (event) {
     }
     const point=getCanvasPoint(event);
     if(dragKind==='arrow'&&temporaryArrow){temporaryArrow.x2=point.x;temporaryArrow.y2=point.y;draw();return;}
+    if(dragKind==='shape-create'&&temporaryShape){temporaryShape.x2=point.x;temporaryShape.y2=point.y;draw();return;}
+    if(dragKind==='shape-resize'&&selectedIndex>=0&&objectStart){
+      const dx=point.x-dragStart.x,dy=point.y-dragStart.y;
+      if(Math.hypot(dx,dy)>3){dragMoved=true;cancelLongPress();}
+      const obj=objects[selectedIndex];
+      Object.assign(obj, objectStart);
+      if (resizeHandle?.includes('n')) obj.y1 = clamp(objectStart.y1 + dy, 0, canvas.height);
+      if (resizeHandle?.includes('s')) obj.y2 = clamp(objectStart.y2 + dy, 0, canvas.height);
+      if (resizeHandle?.includes('w')) obj.x1 = clamp(objectStart.x1 + dx, 0, canvas.width);
+      if (resizeHandle?.includes('e')) obj.x2 = clamp(objectStart.x2 + dx, 0, canvas.width);
+      draw();
+      return;
+    }
     if(dragKind==='object'&&selectedIndex>=0&&objectStart){
       const dx=point.x-dragStart.x,dy=point.y-dragStart.y;if(Math.hypot(dx,dy)>3){dragMoved=true;cancelLongPress();}
       const obj=objects[selectedIndex];
       if(obj.type==='token'){obj.x=clamp(objectStart.x+dx,0,canvas.width);obj.y=clamp(objectStart.y+dy,0,canvas.height);}
       else if(obj.type==='text'){obj.x=clamp(objectStart.x+dx,0,canvas.width);obj.y=clamp(objectStart.y+dy,obj.fontSize,canvas.height);}
       else if(obj.type==='arrow'){obj.x1=objectStart.x1+dx;obj.y1=objectStart.y1+dy;obj.x2=objectStart.x2+dx;obj.y2=objectStart.y2+dy;}
+      else if(obj.type==='shape'){obj.x1=clamp(objectStart.x1+dx,0,canvas.width);obj.y1=clamp(objectStart.y1+dy,0,canvas.height);obj.x2=clamp(objectStart.x2+dx,0,canvas.width);obj.y2=clamp(objectStart.y2+dy,0,canvas.height);}
       draw();
     }
   });
@@ -1519,8 +1740,13 @@ window.addEventListener('unhandledrejection', function (event) {
     if(pinchState){if(activePointers.size<2){pinchState=null;dragging=false;dragKind=null;primaryPointerId=null;}return;}
     if(event.pointerId!==primaryPointerId)return;
     if(dragKind==='arrow'&&temporaryArrow){const length=Math.hypot(temporaryArrow.x2-temporaryArrow.x1,temporaryArrow.y2-temporaryArrow.y1);if(length>12){objects.push(temporaryArrow);selectedIndex=objects.length-1;commitHistory();setStatus('矢印を追加しました。続けて描けます。');}temporaryArrow=null;}
-    else if(dragKind==='object'&&dragMoved&&!longPressTriggered)commitHistory();
-    dragging=false;dragKind=null;dragMoved=false;dragStart=null;objectStart=null;primaryPointerId=null;draw();updateSelectionUI();
+    else if(dragKind==='shape-create'&&temporaryShape){
+      const b = normalizedShapeBounds(temporaryShape);
+      if(b.width > 12 && b.height > 12){objects.push(temporaryShape);selectedIndex=objects.length-1;commitHistory();setStatus(temporaryShape.shape === 'ellipse' ? '丸枠を追加しました。' : '四角枠を追加しました。');}
+      temporaryShape=null;
+    }
+    else if((dragKind==='object'||dragKind==='shape-resize')&&dragMoved&&!longPressTriggered)commitHistory();
+    dragging=false;dragKind=null;dragMoved=false;dragStart=null;objectStart=null;resizeHandle=null;primaryPointerId=null;draw();updateSelectionUI();
   }
   canvas.addEventListener('pointerup',finishPointer);
   canvas.addEventListener('pointercancel',finishPointer);
@@ -1535,7 +1761,7 @@ window.addEventListener('unhandledrejection', function (event) {
   document.getElementById('resetBgBtn').addEventListener('click',()=>loadBackground(DEFAULT_BACKGROUND,'初期覇道マップ.jpeg',true));
   document.getElementById('saveJsonBtn').addEventListener('click',()=>{
     saveCurrentScene();
-    const data={app:'hado-tactics-board',version:5,savedAt:new Date().toISOString(),background:{name:backgroundName,dataUrl:backgroundDataUrl,width:canvas.width,height:canvas.height},view:{zoom,showUnitInfo},currentSceneIndex,scenes:deepCopy(scenes),objects:deepCopy(objects)};
+    const data={app:'hado-tactics-board',version:7,savedAt:new Date().toISOString(),background:{name:backgroundName,dataUrl:backgroundDataUrl,width:canvas.width,height:canvas.height},view:{zoom,showUnitInfo},currentSceneIndex,scenes:deepCopy(scenes),objects:deepCopy(objects)};
     downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`${safeBaseName(backgroundName)}_時間別作戦データ.json`);
     setStatus('時間別シーンを含む編集データを保存しました。');
   });
@@ -1565,6 +1791,7 @@ ${error.message}`);}};
   document.getElementById('prevSceneBtn').addEventListener('click',()=>switchScene(currentSceneIndex-1));
   document.getElementById('nextSceneBtn').addEventListener('click',()=>switchScene(currentSceneIndex+1));
   playScenesBtn.addEventListener('click',playScenes);
+  playScenesFloatBtn.addEventListener('click',playScenes);
   document.getElementById('addSceneBtn').addEventListener('click',addScene);
   document.getElementById('renameSceneBtn').addEventListener('click',renameScene);
   document.getElementById('deleteSceneBtn').addEventListener('click',deleteScene);
@@ -1578,6 +1805,17 @@ ${error.message}`);}};
   document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{if(isPlaying)return;setMode(btn.dataset.mode);closeToolbar();}));
   document.querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{if(!isPlaying)addByKind(btn.dataset.add);}));
   document.querySelectorAll('[data-unit-letter]').forEach(select=>select.addEventListener('change',()=>{currentUnitLetter=select.value;document.querySelectorAll('[data-unit-letter]').forEach(other=>other.value=currentUnitLetter);}));
+  lineStyleInput.addEventListener('change',()=>{
+    const obj = objects[selectedIndex];
+    if (obj && (obj.type === 'arrow' || obj.type === 'shape')) {
+      obj.lineStyle = lineStyleInput.value;
+      commitHistory();
+      draw();
+      setStatus(`選択中の${obj.type === 'arrow' ? '矢印' : '図形'}を${lineStyleInput.value === 'dashed' ? '点線' : '実線'}に変更しました。`);
+    } else {
+      setStatus(`これから描く線を${lineStyleInput.value === 'dashed' ? '点線' : '実線'}に設定しました。`);
+    }
+  });
   editBtn.addEventListener('click',editSelected);toggleUnitInfoBtn.addEventListener('click',toggleUnitInfo);deleteBtn.addEventListener('click',deleteSelected);document.getElementById('mobileEditBtn').addEventListener('click',editSelected);document.getElementById('mobileDeleteBtn').addEventListener('click',deleteSelected);
   document.getElementById('saveDetailBtn').addEventListener('click',saveDetailEditor);
   document.getElementById('cancelDetailBtn').addEventListener('click',closeDetailEditor);
@@ -1587,6 +1825,8 @@ ${error.message}`);}};
   document.getElementById('zoomInBtn').addEventListener('click',()=>applyZoom(zoom*1.22));
   document.getElementById('zoomOutBtn').addEventListener('click',()=>applyZoom(zoom/1.22));
   document.getElementById('fitBtn').addEventListener('click',()=>{fitToView();setStatus('マップ全体を表示しました。');});
+  menuCollapseBtn.addEventListener('click', ()=> toggleMenuCollapsed());
+  menuExpandFloatBtn.addEventListener('click', ()=> toggleMenuCollapsed(false));
 
   const toolbar=document.getElementById('toolbar'),drawerBackdrop=document.getElementById('drawerBackdrop');
   function openToolbar(){toolbar.classList.add('open');drawerBackdrop.classList.add('show');}
@@ -1603,7 +1843,7 @@ ${error.message}`);}};
   window.addEventListener('resize',()=>{layoutStage();if(keepFitOnResize)fitToView();});
   window.addEventListener('orientationchange',()=>setTimeout(fitToView,220));
 
-  backgroundImage.onload=()=>{canvas.width=backgroundImage.naturalWidth;canvas.height=backgroundImage.naturalHeight;scenes=createDefaultScenes([]);currentSceneIndex=0;objects=[];resetHistory();updateUnitInfoToggle();draw();updateSceneUI(true);requestAnimationFrame(()=>{fitToView();updateSelectionUI();setMode('select');});};
+  backgroundImage.onload=()=>{canvas.width=backgroundImage.naturalWidth;canvas.height=backgroundImage.naturalHeight;scenes=createDefaultScenes([]);currentSceneIndex=0;objects=[];resetHistory();updateUnitInfoToggle();draw();updateSceneUI(true);requestAnimationFrame(()=>{fitToView();updateSelectionUI();setMode('select');applyMenuCollapsed(false, true);});};
   backgroundImage.src=DEFAULT_BACKGROUND;
 })();
 </script>
