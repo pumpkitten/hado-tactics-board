@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111317">
-<title>覇道戦術ボード 点線・折りたたみ時再生対応版</title>
+<title>覇道戦術ボード 味方・敵部隊カラー対応版</title>
 <style>
   :root {
     color-scheme: dark;
@@ -592,6 +592,15 @@
     }
   }
 
+
+  .unit-color-controls { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+  .unit-color-label { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:12px; white-space:nowrap; }
+  .unit-color-label input[type="color"] { width:42px; min-width:42px; }
+  .mobile-color-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .mobile-color-row .unit-color-label { min-height:46px; justify-content:space-between; padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:var(--panel2); color:var(--text); }
+  .detail-color-wrap { display:flex; align-items:center; gap:10px; }
+  .detail-color-wrap input[type="color"] { width:64px; height:44px; }
+
 </style>
 </head>
 <body>
@@ -600,7 +609,7 @@
   <header>
     <div class="title-wrap">
       <h1>覇道戦術ボード</h1>
-      <p>試作第六弾・点線／折りたたみ時再生対応</p>
+      <p>試作第六弾・味方／敵部隊カラー変更対応</p>
     </div>
     <button id="menuCollapseBtn" type="button" aria-label="メニューを隠す">メニューを隠す</button>
     <button id="settingsToggle" type="button" aria-label="設定を開く">☰</button>
@@ -632,6 +641,10 @@
       <select id="unitLetter" data-unit-letter title="追加する部隊番号">
         <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option>
       </select>
+      <div class="unit-color-controls" aria-label="追加する部隊の色">
+        <label class="unit-color-label">味方色 <input id="friendlyColor" data-unit-color="friendly" type="color" value="#187fc4" title="味方部隊の色"></label>
+        <label class="unit-color-label">敵色 <input id="enemyColor" data-unit-color="enemy" type="color" value="#bd3434" title="敵部隊の色"></label>
+      </div>
       <button type="button" data-add="blue">＋ 味方部隊</button>
       <button type="button" data-add="red">＋ 敵部隊</button>
       <button type="button" data-add="siege">＋ 井蘭車</button>
@@ -762,6 +775,9 @@
         <label class="detail-field">盤面上の表示名
           <input id="detailLabel" type="text" maxlength="12" placeholder="例：味A、左攻めA">
         </label>
+        <label class="detail-field">駒の色
+          <span class="detail-color-wrap"><input id="detailColor" type="color" value="#187fc4"><span>同じ駒の全場面へ反映可能</span></span>
+        </label>
         <label class="detail-field">役割
           <select id="detailRole">
             <option value="">未設定</option>
@@ -805,6 +821,10 @@
       <div class="sheet-header"><strong>駒を追加</strong><button id="closeAddSheet" type="button">×</button></div>
       <div class="letter-row"><span>部隊番号</span>
         <select id="mobileUnitLetter" data-unit-letter><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option></select>
+      </div>
+      <div class="mobile-color-row" aria-label="追加する部隊の色">
+        <label class="unit-color-label">味方色 <input id="mobileFriendlyColor" data-unit-color="friendly" type="color" value="#187fc4"></label>
+        <label class="unit-color-label">敵色 <input id="mobileEnemyColor" data-unit-color="enemy" type="color" value="#bd3434"></label>
       </div>
       <div class="add-grid">
         <button type="button" data-add="blue">🔵 味方部隊</button>
@@ -856,6 +876,7 @@ window.addEventListener('unhandledrejection', function (event) {
   const selectedInfo = document.getElementById('selectedInfo');
   const detailBackdrop = document.getElementById('detailBackdrop');
   const detailLabel = document.getElementById('detailLabel');
+  const detailColor = document.getElementById('detailColor');
   const detailRole = document.getElementById('detailRole');
   const detailAssignee = document.getElementById('detailAssignee');
   const detailTarget = document.getElementById('detailTarget');
@@ -877,6 +898,8 @@ window.addEventListener('unhandledrejection', function (event) {
   let backgroundImage = new Image();
   let backgroundDataUrl = DEFAULT_BACKGROUND;
   let backgroundName = '初期覇道マップ.jpeg';
+  let friendlyUnitColor = '#187fc4';
+  let enemyUnitColor = '#bd3434';
   let objects = [];
   let selectedIndex = -1;
   let mode = 'select';
@@ -915,6 +938,20 @@ window.addEventListener('unhandledrejection', function (event) {
 
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
   function deepCopy(value) { return JSON.parse(JSON.stringify(value)); }
+  function normalizeHexColor(value, fallback = '#187fc4') {
+    const color = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
+  }
+  function outlineForColor(hex) {
+    const color = normalizeHexColor(hex, '#187fc4');
+    const channels = [1,3,5].map(i => parseInt(color.slice(i, i + 2), 16));
+    const mixed = channels.map(c => Math.round(c + (255 - c) * 0.5));
+    return '#' + mixed.map(c => c.toString(16).padStart(2, '0')).join('');
+  }
+  function syncUnitColorControls() {
+    document.querySelectorAll('[data-unit-color="friendly"]').forEach(input => input.value = friendlyUnitColor);
+    document.querySelectorAll('[data-unit-color="enemy"]').forEach(input => input.value = enemyUnitColor);
+  }
   function makeUid(prefix = 'obj') {
     uidCounter += 1;
     return `${prefix}_${Date.now().toString(36)}_${uidCounter.toString(36)}_${Math.random().toString(36).slice(2,7)}`;
@@ -927,6 +964,10 @@ window.addEventListener('unhandledrejection', function (event) {
         if (typeof obj.assignee !== 'string') obj.assignee = '';
         if (typeof obj.target !== 'string') obj.target = '';
         if (typeof obj.note !== 'string') obj.note = '';
+        if (!/^#[0-9a-f]{6}$/i.test(obj.color || '')) {
+          obj.color = obj.side === 'red' ? '#bd3434' : obj.side === 'blue' ? '#187fc4' : (obj.color || '#70451f');
+        }
+        if (!/^#[0-9a-f]{6}$/i.test(obj.outline || '')) obj.outline = outlineForColor(obj.color);
       }
     });
     return list || [];
@@ -1558,7 +1599,8 @@ window.addEventListener('unhandledrejection', function (event) {
 
   function addToken(side) {
     const isBlue=side==='blue'; const letter=/^[A-F]$/.test(currentUnitLetter)?currentUnitLetter:'A';
-    objects.push({uid:makeUid('token'),type:'token',kind:'unit',side,unitLetter:letter,x:canvas.width/2+(isBlue?-42:42),y:canvas.height/2,radius:Math.max(24,Math.min(canvas.width,canvas.height)*.035),color:isBlue?'#187fc4':'#bd3434',outline:isBlue?'#8bd5ff':'#ff9b9b',label:`${isBlue?'味':'敵'}${letter}`,role:'',assignee:'',target:'',note:''});
+    const color = isBlue ? friendlyUnitColor : enemyUnitColor;
+    objects.push({uid:makeUid('token'),type:'token',kind:'unit',side,unitLetter:letter,x:canvas.width/2+(isBlue?-42:42),y:canvas.height/2,radius:Math.max(24,Math.min(canvas.width,canvas.height)*.035),color,outline:outlineForColor(color),label:`${isBlue?'味':'敵'}${letter}`,role:'',assignee:'',target:'',note:''});
     selectedIndex=objects.length-1;setMode('select');commitHistory();draw();updateSelectionUI();setStatus(`${isBlue?'味方':'敵'}部隊 ${letter} を追加しました。`);
   }
   function addSpecialToken(kind) {
@@ -1590,6 +1632,7 @@ window.addEventListener('unhandledrejection', function (event) {
     if (!obj || obj.type !== 'token') return;
     detailEditingIndex = index;
     detailLabel.value = obj.label || objectName(obj);
+    detailColor.value = normalizeHexColor(obj.color, obj.side === 'red' ? enemyUnitColor : friendlyUnitColor);
     detailRole.value = obj.role || '';
     detailAssignee.value = obj.assignee || '';
     detailTarget.value = obj.target || '';
@@ -1610,8 +1653,11 @@ window.addEventListener('unhandledrejection', function (event) {
   function saveDetailEditor() {
     const obj = objects[detailEditingIndex];
     if (!obj || obj.type !== 'token') { closeDetailEditor(); return; }
+    const chosenColor = normalizeHexColor(detailColor.value, obj.color || '#187fc4');
     const identityFields = {
       label: (detailLabel.value.trim() || objectName(obj)).slice(0, 12),
+      color: chosenColor,
+      outline: outlineForColor(chosenColor),
       role: detailRole.value.slice(0, 20),
       assignee: detailAssignee.value.trim().slice(0, 30)
     };
@@ -1635,7 +1681,7 @@ window.addEventListener('unhandledrejection', function (event) {
     }
     commitHistory();
     draw(); updateSelectionUI(); updateSceneUI();
-    setStatus(`「${obj.label}」の役割・担当者・目標を保存しました。`);
+    setStatus(`「${obj.label}」の色・役割・担当者・目標を保存しました。`);
     closeDetailEditor();
   }
   function editObject(index) {
@@ -1768,7 +1814,7 @@ window.addEventListener('unhandledrejection', function (event) {
   document.getElementById('resetBgBtn').addEventListener('click',()=>loadBackground(DEFAULT_BACKGROUND,'初期覇道マップ.jpeg',true));
   document.getElementById('saveJsonBtn').addEventListener('click',()=>{
     saveCurrentScene();
-    const data={app:'hado-tactics-board',version:7,savedAt:new Date().toISOString(),background:{name:backgroundName,dataUrl:backgroundDataUrl,width:canvas.width,height:canvas.height},view:{zoom,showUnitInfo},currentSceneIndex,scenes:deepCopy(scenes),objects:deepCopy(objects)};
+    const data={app:'hado-tactics-board',version:8,savedAt:new Date().toISOString(),background:{name:backgroundName,dataUrl:backgroundDataUrl,width:canvas.width,height:canvas.height},view:{zoom,showUnitInfo,friendlyUnitColor,enemyUnitColor},currentSceneIndex,scenes:deepCopy(scenes),objects:deepCopy(objects)};
     downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`${safeBaseName(backgroundName)}_時間別作戦データ.json`);
     setStatus('時間別シーンを含む編集データを保存しました。');
   });
@@ -1783,6 +1829,9 @@ window.addEventListener('unhandledrejection', function (event) {
       const loadedIndex=clamp(Number(data.currentSceneIndex)||0,0,loadedScenes.length-1);
       const applyLoaded=()=>{
         scenes=loadedScenes;currentSceneIndex=loadedIndex;
+        friendlyUnitColor = normalizeHexColor(data.view?.friendlyUnitColor, '#187fc4');
+        enemyUnitColor = normalizeHexColor(data.view?.enemyUnitColor, '#bd3434');
+        syncUnitColorControls();
         showUnitInfo = data.view?.showUnitInfo !== false; updateUnitInfoToggle();
         if(!scenes[currentSceneIndex].initialized){scenes[currentSceneIndex].initialized=true;scenes[currentSceneIndex].objects=[];}
         objects=ensureObjectIds(deepCopy(scenes[currentSceneIndex].objects));selectedIndex=-1;animationObjects=null;resetHistory();draw();updateSceneUI(true);updateSelectionUI();requestAnimationFrame(fitToView);setStatus(`編集データ「${file.name}」を読み込みました（${scenes.length}場面）。`);
@@ -1812,6 +1861,12 @@ ${error.message}`);}};
   document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{if(isPlaying)return;setMode(btn.dataset.mode);closeToolbar();}));
   document.querySelectorAll('[data-add]').forEach(btn=>btn.addEventListener('click',()=>{if(!isPlaying)addByKind(btn.dataset.add);}));
   document.querySelectorAll('[data-unit-letter]').forEach(select=>select.addEventListener('change',()=>{currentUnitLetter=select.value;document.querySelectorAll('[data-unit-letter]').forEach(other=>other.value=currentUnitLetter);}));
+  document.querySelectorAll('[data-unit-color]').forEach(input => input.addEventListener('input', () => {
+    if (input.dataset.unitColor === 'friendly') friendlyUnitColor = normalizeHexColor(input.value, friendlyUnitColor);
+    if (input.dataset.unitColor === 'enemy') enemyUnitColor = normalizeHexColor(input.value, enemyUnitColor);
+    syncUnitColorControls();
+    setStatus(`${input.dataset.unitColor === 'friendly' ? '味方' : '敵'}部隊の追加色を変更しました。`);
+  }));
   lineStyleInput.addEventListener('change',()=>{
     const obj = objects[selectedIndex];
     if (obj && (obj.type === 'arrow' || obj.type === 'shape')) {
@@ -1850,7 +1905,7 @@ ${error.message}`);}};
   window.addEventListener('resize',()=>{layoutStage();if(keepFitOnResize)fitToView();});
   window.addEventListener('orientationchange',()=>setTimeout(fitToView,220));
 
-  backgroundImage.onload=()=>{canvas.width=backgroundImage.naturalWidth;canvas.height=backgroundImage.naturalHeight;scenes=createDefaultScenes([]);currentSceneIndex=0;objects=[];resetHistory();updateUnitInfoToggle();draw();updateSceneUI(true);requestAnimationFrame(()=>{fitToView();updateSelectionUI();setMode('select');applyMenuCollapsed(false, true);});};
+  backgroundImage.onload=()=>{canvas.width=backgroundImage.naturalWidth;canvas.height=backgroundImage.naturalHeight;scenes=createDefaultScenes([]);currentSceneIndex=0;objects=[];resetHistory();syncUnitColorControls();updateUnitInfoToggle();draw();updateSceneUI(true);requestAnimationFrame(()=>{fitToView();updateSelectionUI();setMode('select');applyMenuCollapsed(false, true);});};
   backgroundImage.src=DEFAULT_BACKGROUND;
 })();
 </script>
