@@ -773,7 +773,7 @@
       </div>
       <div class="detail-grid">
         <label class="detail-field">盤面上の表示名
-          <input id="detailLabel" type="text" maxlength="12" placeholder="例：味A、左攻めA">
+          <input id="detailLabel" type="text" maxlength="12" placeholder="例：自A、左攻めA">
         </label>
         <label class="detail-field">駒の色
           <span class="detail-color-wrap"><input id="detailColor" type="color" value="#187fc4"><span>同じ駒の全場面へ反映可能</span></span>
@@ -960,6 +960,7 @@ window.addEventListener('unhandledrejection', function (event) {
     (list || []).forEach(obj => {
       if (!obj.uid) obj.uid = makeUid(obj.type || 'obj');
       if (obj.type === 'token') {
+        if (obj.side === 'blue' && /^味[A-F]$/.test(String(obj.label || ''))) obj.label = '自' + String(obj.label).slice(1);
         if (typeof obj.role !== 'string') obj.role = '';
         if (typeof obj.assignee !== 'string') obj.assignee = '';
         if (typeof obj.target !== 'string') obj.target = '';
@@ -1450,7 +1451,7 @@ window.addEventListener('unhandledrejection', function (event) {
   }
 
   function drawUnitLabel(obj) {
-    const label = obj.label || `${obj.side === 'red' ? '敵' : '味'}${obj.unitLetter || 'A'}`;
+    const label = obj.label || `${obj.side === 'red' ? '敵' : '自'}${obj.unitLetter || 'A'}`;
     const textSize = label.length <= 2 ? obj.radius * .88 : obj.radius * .67;
     ctx.font = `900 ${Math.round(textSize)}px system-ui, "Yu Gothic UI", sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
@@ -1600,7 +1601,7 @@ window.addEventListener('unhandledrejection', function (event) {
   function addToken(side) {
     const isBlue=side==='blue'; const letter=/^[A-F]$/.test(currentUnitLetter)?currentUnitLetter:'A';
     const color = isBlue ? friendlyUnitColor : enemyUnitColor;
-    objects.push({uid:makeUid('token'),type:'token',kind:'unit',side,unitLetter:letter,x:canvas.width/2+(isBlue?-42:42),y:canvas.height/2,radius:Math.max(24,Math.min(canvas.width,canvas.height)*.035),color,outline:outlineForColor(color),label:`${isBlue?'味':'敵'}${letter}`,role:'',assignee:'',target:'',note:''});
+    objects.push({uid:makeUid('token'),type:'token',kind:'unit',side,unitLetter:letter,x:canvas.width/2+(isBlue?-42:42),y:canvas.height/2,radius:Math.max(24,Math.min(canvas.width,canvas.height)*.035),color,outline:outlineForColor(color),label:`${isBlue?'自':'敵'}${letter}`,role:'',assignee:'',target:'',note:''});
     selectedIndex=objects.length-1;setMode('select');commitHistory();draw();updateSelectionUI();setStatus(`${isBlue?'味方':'敵'}部隊 ${letter} を追加しました。`);
   }
   function addSpecialToken(kind) {
